@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Clash Royale Prototype – Card Cycling</title>
+  <title>Clash Royale Prototype – Pockets & Cycling</title>
   <style>
     body {
       margin: 0;
@@ -147,8 +147,8 @@
 
     <canvas id="gameCanvas" width="650" height="600"></canvas>
     <div id="info">
-      Click on your side of the arena to place the selected card.<br/>
-      Ground troops must use bridges; air troops can fly over the river.
+      Click on your side to place the selected card.<br/>
+      After you take a tower, you can place in that pocket. Ground troops still use bridges.
     </div>
   </div>
 
@@ -161,7 +161,7 @@
       height: canvas.height,
       riverY: canvas.height / 2,
       bridgeWidth: 90,
-      bridgeGap: 220, // bridges further apart
+      bridgeGap: 220,
     };
 
     const bridges = [
@@ -210,7 +210,7 @@
       { id: "arrows", name: "Arrows", icon: "🎯", color: "#fff", cost: 3, spell: true, radius: 80, dmg: 150 },
     ];
 
-    const PLAYER_DECK = [...CARDS]; // 8 cards
+    const PLAYER_DECK = [...CARDS];
     const BOT_DECK = [...CARDS];
 
     let playerHandIndices = [0, 1, 2, 3];
@@ -380,10 +380,77 @@
         : [towers.player.leftPrincess, towers.player.rightPrincess, towers.player.king];
     }
 
+    // Pocket rectangles (enemy side pockets for player, and vice versa)
+    function getPlayerPockets() {
+      const pockets = [];
+      const enemy = towers.bot;
+      const king = enemy.king;
+
+      if (enemy.leftPrincess.hp <= 0) {
+        pockets.push({
+          x1: Math.min(enemy.leftPrincess.x, king.x) - 40,
+          x2: Math.max(enemy.leftPrincess.x, king.x) + 40,
+          y1: enemy.leftPrincess.y - 40,
+          y2: king.y + 40,
+        });
+      }
+      if (enemy.rightPrincess.hp <= 0) {
+        pockets.push({
+          x1: Math.min(enemy.rightPrincess.x, king.x) - 40,
+          x2: Math.max(enemy.rightPrincess.x, king.x) + 40,
+          y1: enemy.rightPrincess.y - 40,
+          y2: king.y + 40,
+        });
+      }
+      return pockets;
+    }
+
+    function getBotPockets() {
+      const pockets = [];
+      const enemy = towers.player;
+      const king = enemy.king;
+
+      if (enemy.leftPrincess.hp <= 0) {
+        pockets.push({
+          x1: Math.min(enemy.leftPrincess.x, king.x) - 40,
+          x2: Math.max(enemy.leftPrincess.x, king.x) + 40,
+          y1: king.y - 40,
+          y2: enemy.leftPrincess.y + 40,
+        });
+      }
+      if (enemy.rightPrincess.hp <= 0) {
+        pockets.push({
+          x1: Math.min(enemy.rightPrincess.x, king.x) - 40,
+          x2: Math.max(enemy.rightPrincess.x, king.x) + 40,
+          y1: king.y - 40,
+          y2: enemy.rightPrincess.y + 40,
+        });
+      }
+      return pockets;
+    }
+
+    function pointInRect(x, y, r) {
+      return x >= r.x1 && x <= r.x2 && y >= r.y1 && y <= r.y2;
+    }
+
     function canPlaceCardAt(card, x, y, side) {
-      if (side === "player" && y <= ARENA.riverY + 10) return false;
-      if (side === "bot" && y >= ARENA.riverY - 10) return false;
-      return true;
+      if (card.spell) return true; // spells anywhere
+
+      if (side === "player") {
+        if (y > ARENA.riverY + 10) return true; // own side
+        const pockets = getPlayerPockets();
+        for (const p of pockets) {
+          if (pointInRect(x, y, p)) return true;
+        }
+        return false;
+      } else {
+        if (y < ARENA.riverY - 10) return true; // bot own side
+        const pockets = getBotPockets();
+        for (const p of pockets) {
+          if (pointInRect(x, y, p)) return true;
+        }
+        return false;
+      }
     }
 
     function spawnUnit(card, x, y, side) {
@@ -478,8 +545,15 @@
       const cardIndex = botHandIndices[slot];
       const card = getCardFromDeck(BOT_DECK, cardIndex);
 
-      const x = 80 + Math.random() * (ARENA.width - 160);
-      const y = 40 + Math.random() * (ARENA.riverY - 80);
+      let x = 80 + Math.random() * (ARENA.width - 160);
+      let y = 40 + Math.random() * (ARENA.riverY - 80);
+
+      const pockets = getBotPockets();
+      if (pockets.length > 0 && Math.random() < 0.5) {
+        const p = pockets[Math.floor(Math.random() * pockets.length)];
+        x = p.x1 + Math.random() * (p.x2 - p.x1);
+        y = p.y1 + Math.random() * (p.y2 - p.y1);
+      }
 
       if (!canPlaceCardAt(card, x, y, "bot")) return;
 
@@ -593,14 +667,21 @@
         if (!t.attackCooldown) t.attackCooldown = 0;
         t.attackCooldown -= dt;
 
-        const range = t.type === "king" ? 130 : 110;
+        const baseRange = t.type === "king" ? 130 : 160; // princess range extended
         let nearest = null;
         let nearestDist = Infinity;
 
         units.forEach((u) => {
           if (u.side === t.side || u.hp <= 0) return;
+
+          // prevent princess shooting past river
+          if (t.type === "princess") {
+            if (t.side === "player" && u.y < ARENA.riverY - 5) return;
+            if (t.side === "bot" && u.y > ARENA.riverY + 5) return;
+          }
+
           const d = distance(u, t);
-          if (d < nearestDist && d <= range) {
+          if (d < nearestDist && d <= baseRange) {
             nearestDist = d;
             nearest = u;
           }
@@ -673,19 +754,71 @@
       if (u.hp <= 0) return;
       ctx.save();
       ctx.translate(u.x, u.y);
-      ctx.fillStyle = u.side === "player" ? "#ff66aa" : "#66ddff";
-      ctx.beginPath();
-      ctx.arc(0, 0, 10, 0, Math.PI * 2);
-      ctx.fill();
 
-      ctx.fillStyle = u.card.type === "air" ? "#ffffff" : "#000000";
-      ctx.fillRect(-6, -18, 12, 4);
+      // Unique "art" per troop
+      if (u.card.id === "knight") {
+        ctx.fillStyle = u.side === "player" ? "#c9a34f" : "#7fa0d9";
+        ctx.fillRect(-10, -16, 20, 32);
+        ctx.fillStyle = "#444";
+        ctx.fillRect(-8, -20, 16, 8);
+      } else if (u.card.id === "archers") {
+        ctx.fillStyle = u.side === "player" ? "#7fd9ff" : "#ff9fd9";
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 10, 14, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#222";
+        ctx.beginPath();
+        ctx.moveTo(-10, 0);
+        ctx.lineTo(10, 0);
+        ctx.stroke();
+      } else if (u.card.id === "giant") {
+        ctx.fillStyle = u.side === "player" ? "#d98b4f" : "#b5651d";
+        ctx.fillRect(-14, -20, 28, 40);
+        ctx.fillStyle = "#333";
+        ctx.fillRect(-10, -26, 20, 10);
+      } else if (u.card.id === "minions") {
+        ctx.fillStyle = u.side === "player" ? "#6666ff" : "#4444aa";
+        ctx.beginPath();
+        ctx.arc(-6, 0, 7, 0, Math.PI * 2);
+        ctx.arc(6, 0, 7, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (u.card.id === "baby_dragon") {
+        ctx.fillStyle = u.side === "player" ? "#4ff88a" : "#3bbf6a";
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 14, 10, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#2a5";
+        ctx.beginPath();
+        ctx.moveTo(-14, 0);
+        ctx.lineTo(-24, -6);
+        ctx.lineTo(-24, 6);
+        ctx.closePath();
+        ctx.fill();
+      } else if (u.card.id === "mini_pekka") {
+        ctx.fillStyle = u.side === "player" ? "#88c" : "#446";
+        ctx.fillRect(-10, -16, 20, 32);
+        ctx.fillStyle = "#222";
+        ctx.fillRect(-8, -22, 16, 10);
+      } else {
+        // fallback
+        ctx.fillStyle = u.side === "player" ? "#ff66aa" : "#66ddff";
+        ctx.beginPath();
+        ctx.arc(0, 0, 10, 0, Math.PI * 2);
+        ctx.fill();
+      }
 
+      // HP bar
       const hpPct = u.hp / u.card.hp;
       ctx.fillStyle = "#000";
-      ctx.fillRect(-12, 12, 24, 4);
+      ctx.fillRect(-12, 14, 24, 4);
       ctx.fillStyle = "#0f0";
-      ctx.fillRect(-12, 12, 24 * hpPct, 4);
+      ctx.fillRect(-12, 14, 24 * hpPct, 4);
+
+      // Name tag (identify enemy cards)
+      ctx.font = "10px Arial";
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#fff";
+      ctx.fillText(u.card.name, 0, -20);
 
       ctx.restore();
     }
