@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Clash Royale Prototype – Pockets & Cycling</title>
+  <title>Clash Royale Prototype – Improved Mechanics</title>
   <style>
     body {
       margin: 0;
@@ -14,13 +14,13 @@
     }
     #gameContainer {
       margin: 10px auto;
-      width: 720px;
+      width: 740px;
     }
     #ui {
       margin-bottom: 8px;
     }
     #elixirBarOuter {
-      width: 320px;
+      width: 340px;
       height: 20px;
       border: 2px solid #fff;
       margin: 0 auto 4px;
@@ -124,7 +124,7 @@
 </head>
 <body>
   <div id="gameContainer">
-    <h1>Clash Royale Prototype</h1>
+    <h1>Clash Royale Prototype – Improved</h1>
 
     <div id="ui">
       <div id="elixirText">Elixir: 0 / 10</div>
@@ -147,12 +147,15 @@
 
     <canvas id="gameCanvas" width="650" height="600"></canvas>
     <div id="info">
-      Click on your side to place the selected card.<br/>
-      After you take a tower, you can place in that pocket. Ground troops still use bridges.
+      Click on your side (or unlocked pockets) to place the selected card.<br/>
+      Troops now actually fight each other instead of walking past.
     </div>
   </div>
 
   <script>
+    // =========================
+    // BASIC CONSTANTS & SETUP
+    // =========================
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
 
@@ -199,15 +202,121 @@
     const nextCardName = document.getElementById("nextCardName");
     const nextCardCost = document.getElementById("nextCardCost");
 
+    // =========================
+    // CARD DEFINITIONS
+    // =========================
+    // Added attackSpeed, aggroRange, targetType, etc.
     const CARDS = [
-      { id: "knight", name: "Knight", icon: "🛡️", color: "#8b5", cost: 3, speed: 40, hp: 800, dmg: 80, range: 20, type: "ground" },
-      { id: "archers", name: "Archers", icon: "🏹", color: "#6bf", cost: 3, speed: 45, hp: 250, dmg: 60, range: 90, type: "air" },
-      { id: "giant", name: "Giant", icon: "💪", color: "#d93", cost: 5, speed: 30, hp: 2000, dmg: 150, range: 20, type: "ground" },
-      { id: "minions", name: "Minions", icon: "👾", color: "#66f", cost: 3, speed: 55, hp: 190, dmg: 70, range: 20, type: "air" },
-      { id: "baby_dragon", name: "Baby Dragon", icon: "🐉", color: "#4f8", cost: 4, speed: 45, hp: 1200, dmg: 100, range: 80, type: "air" },
-      { id: "mini_pekka", name: "Mini P.E.K.K.A", icon: "🤖", color: "#f55", cost: 4, speed: 50, hp: 1100, dmg: 300, range: 20, type: "ground" },
-      { id: "fireball", name: "Fireball", icon: "🔥", color: "#f33", cost: 4, spell: true, radius: 60, dmg: 300 },
-      { id: "arrows", name: "Arrows", icon: "🎯", color: "#fff", cost: 3, spell: true, radius: 80, dmg: 150 },
+      {
+        id: "knight",
+        name: "Knight",
+        icon: "🛡️",
+        color: "#8b5",
+        cost: 3,
+        speed: 40,
+        hp: 900,
+        dmg: 120,
+        range: 20,
+        attackSpeed: 1.1,
+        aggroRange: 80,
+        type: "ground",
+        targetType: "ground",
+      },
+      {
+        id: "archers",
+        name: "Archers",
+        icon: "🏹",
+        color: "#6bf",
+        cost: 3,
+        speed: 45,
+        hp: 280,
+        dmg: 70,
+        range: 110,
+        attackSpeed: 1.0,
+        aggroRange: 120,
+        type: "ground",
+        targetType: "air_ground",
+      },
+      {
+        id: "giant",
+        name: "Giant",
+        icon: "💪",
+        color: "#d93",
+        cost: 5,
+        speed: 28,
+        hp: 2200,
+        dmg: 180,
+        range: 20,
+        attackSpeed: 1.4,
+        aggroRange: 60,
+        type: "ground",
+        targetType: "building",
+      },
+      {
+        id: "minions",
+        name: "Minions",
+        icon: "👾",
+        color: "#66f",
+        cost: 3,
+        speed: 60,
+        hp: 200,
+        dmg: 80,
+        range: 20,
+        attackSpeed: 1.0,
+        aggroRange: 90,
+        type: "air",
+        targetType: "air_ground",
+      },
+      {
+        id: "baby_dragon",
+        name: "Baby Dragon",
+        icon: "🐉",
+        color: "#4f8",
+        cost: 4,
+        speed: 45,
+        hp: 1300,
+        dmg: 110,
+        range: 90,
+        attackSpeed: 1.1,
+        aggroRange: 120,
+        type: "air",
+        targetType: "air_ground",
+      },
+      {
+        id: "mini_pekka",
+        name: "Mini P.E.K.K.A",
+        icon: "🤖",
+        color: "#f55",
+        cost: 4,
+        speed: 55,
+        hp: 1200,
+        dmg: 320,
+        range: 20,
+        attackSpeed: 1.2,
+        aggroRange: 80,
+        type: "ground",
+        targetType: "ground",
+      },
+      {
+        id: "fireball",
+        name: "Fireball",
+        icon: "🔥",
+        color: "#f33",
+        cost: 4,
+        spell: true,
+        radius: 60,
+        dmg: 350,
+      },
+      {
+        id: "arrows",
+        name: "Arrows",
+        icon: "🎯",
+        color: "#fff",
+        cost: 3,
+        spell: true,
+        radius: 80,
+        dmg: 170,
+      },
     ];
 
     const PLAYER_DECK = [...CARDS];
@@ -273,6 +382,9 @@
     renderHandUI();
     updateElixirUI();
 
+    // =========================
+    // TOWERS
+    // =========================
     function createTowers() {
       const bottomY = ARENA.height - 80;
       const topY = 40;
@@ -357,6 +469,9 @@
     const units = [];
     const spells = [];
 
+    // =========================
+    // HELPERS
+    // =========================
     function distance(a, b) {
       const dx = a.x - b.x;
       const dy = a.y - b.y;
@@ -380,7 +495,9 @@
         : [towers.player.leftPrincess, towers.player.rightPrincess, towers.player.king];
     }
 
-    // Pocket rectangles (enemy side pockets for player, and vice versa)
+    // =========================
+    // POCKETS
+    // =========================
     function getPlayerPockets() {
       const pockets = [];
       const enemy = towers.bot;
@@ -434,17 +551,17 @@
     }
 
     function canPlaceCardAt(card, x, y, side) {
-      if (card.spell) return true; // spells anywhere
+      if (card.spell) return true;
 
       if (side === "player") {
-        if (y > ARENA.riverY + 10) return true; // own side
+        if (y > ARENA.riverY + 10) return true;
         const pockets = getPlayerPockets();
         for (const p of pockets) {
           if (pointInRect(x, y, p)) return true;
         }
         return false;
       } else {
-        if (y < ARENA.riverY - 10) return true; // bot own side
+        if (y < ARENA.riverY - 10) return true;
         const pockets = getBotPockets();
         for (const p of pockets) {
           if (pointInRect(x, y, p)) return true;
@@ -453,6 +570,9 @@
       }
     }
 
+    // =========================
+    // SPAWNING
+    // =========================
     function spawnUnit(card, x, y, side) {
       units.push({
         x,
@@ -462,6 +582,7 @@
         hp: card.hp,
         target: null,
         attackCooldown: 0,
+        state: "move", // move or attack
       });
     }
 
@@ -499,6 +620,9 @@
       });
     }
 
+    // =========================
+    // INPUT
+    // =========================
     canvas.addEventListener("click", (e) => {
       if (gameOver) return;
       const rect = canvas.getBoundingClientRect();
@@ -524,6 +648,9 @@
       renderHandUI();
     });
 
+    // =========================
+    // BOT LOGIC (SMARTER)
+    // =========================
     let botDecisionTimer = 0;
 
     function botUpdate(dt) {
@@ -532,7 +659,7 @@
       botDecisionTimer -= dt;
       if (botDecisionTimer > 0) return;
 
-      botDecisionTimer = 1.5 + Math.random() * 1.5;
+      botDecisionTimer = 1.2 + Math.random() * 1.5;
 
       const playableSlots = [];
       for (let i = 0; i < botHandIndices.length; i++) {
@@ -541,15 +668,38 @@
       }
       if (playableSlots.length === 0) return;
 
+      // Slightly smarter: if player has units on bot side, try to defend near them
+      let defendTarget = null;
+      let closestToBotKing = Infinity;
+      const botKing = towers.bot.king;
+      units.forEach((u) => {
+        if (u.side === "player") {
+          const d = distance(u, botKing);
+          if (d < closestToBotKing) {
+            closestToBotKing = d;
+            defendTarget = u;
+          }
+        }
+      });
+
       const slot = playableSlots[Math.floor(Math.random() * playableSlots.length)];
       const cardIndex = botHandIndices[slot];
       const card = getCardFromDeck(BOT_DECK, cardIndex);
 
-      let x = 80 + Math.random() * (ARENA.width - 160);
-      let y = 40 + Math.random() * (ARENA.riverY - 80);
+      let x, y;
+
+      if (defendTarget && Math.random() < 0.7) {
+        // defend near player's unit
+        x = defendTarget.x + (Math.random() * 40 - 20);
+        y = defendTarget.y - 40 - Math.random() * 30;
+      } else {
+        // normal placement
+        x = 80 + Math.random() * (ARENA.width - 160);
+        y = 40 + Math.random() * (ARENA.riverY - 80);
+      }
 
       const pockets = getBotPockets();
-      if (pockets.length > 0 && Math.random() < 0.5) {
+      if (pockets.length > 0 && Math.random() < 0.4) {
         const p = pockets[Math.floor(Math.random() * pockets.length)];
         x = p.x1 + Math.random() * (p.x2 - p.x1);
         y = p.y1 + Math.random() * (p.y2 - p.y1);
@@ -568,6 +718,9 @@
       cycleBotCard(slot);
     }
 
+    // =========================
+    // PATHING & TARGETING
+    // =========================
     function getGroundTargetPosition(unit, targetTower) {
       const goingUp = unit.side === "player";
       if ((goingUp && unit.y <= ARENA.riverY) || (!goingUp && unit.y >= ARENA.riverY)) {
@@ -587,49 +740,106 @@
       return best;
     }
 
+    function canUnitTarget(unit, target) {
+      if (!target) return false;
+      if (target.hp !== undefined && target.hp <= 0) return false;
+
+      const isTower = target.type === "king" || target.type === "princess";
+      const isUnit = target.card !== undefined;
+
+      if (unit.card.targetType === "building" && !isTower) return false;
+      if (unit.card.targetType === "ground" && isUnit && target.card.type === "air") return false;
+      if (unit.card.targetType === "ground" && isTower && false) return false; // towers are ground, so ok
+      // air_ground can hit anything
+
+      return true;
+    }
+
+    function findUnitTarget(u) {
+      let best = null;
+      let bestDist = Infinity;
+
+      // 1) enemy units within aggroRange
+      units.forEach((other) => {
+        if (other === u || other.hp <= 0) return;
+        if (other.side === u.side) return;
+        const d = distance(u, other);
+        if (d <= u.card.aggroRange && d < bestDist && canUnitTarget(u, other)) {
+          bestDist = d;
+          best = other;
+        }
+      });
+
+      if (best) return best;
+
+      // 2) enemy towers
+      const enemyTowers = getEnemyTowers(u.side);
+      enemyTowers.forEach((t) => {
+        if (t.hp <= 0) return;
+        const d = distance(u, t);
+        if (d < bestDist && canUnitTarget(u, t)) {
+          bestDist = d;
+          best = t;
+        }
+      });
+
+      return best;
+    }
+
     function updateUnits(dt) {
       const allTowers = getAllTowersArray();
 
       units.forEach((u) => {
         if (u.hp <= 0) return;
 
-        let nearest = null;
-        let nearestDist = Infinity;
-
-        units.forEach((other) => {
-          if (other === u || other.hp <= 0) return;
-          if (other.side === u.side) return;
-          const d = distance(u, other);
-          if (d < nearestDist) {
-            nearestDist = d;
-            nearest = other;
+        // Retarget if no target or target dead/out of aggro
+        if (!u.target || (u.target.hp !== undefined && u.target.hp <= 0)) {
+          u.target = findUnitTarget(u);
+        } else {
+          const d = distance(u, u.target);
+          if (d > u.card.aggroRange * 1.3) {
+            u.target = findUnitTarget(u);
           }
-        });
+        }
 
-        allTowers.forEach((t) => {
-          if (t.hp <= 0) return;
-          if (t.side === u.side) return;
-          const d = distance(u, t);
-          if (d < nearestDist) {
-            nearestDist = d;
-            nearest = t;
-          }
-        });
+        if (u.target) {
+          const d = distance(u, u.target);
+          const inRange = d <= u.card.range + 1;
 
-        u.attackCooldown -= dt;
+          if (inRange) {
+            u.state = "attack";
+            u.attackCooldown -= dt;
+            if (u.attackCooldown <= 0) {
+              u.attackCooldown = u.card.attackSpeed;
+              u.target.hp -= u.card.dmg;
+              if (u.target.hp < 0) u.target.hp = 0;
 
-        if (nearest && nearestDist <= u.card.range) {
-          if (u.attackCooldown <= 0) {
-            u.attackCooldown = 1;
-            nearest.hp -= u.card.dmg;
-            if (nearest.hp < 0) nearest.hp = 0;
-
-            if (nearest.type === "princess" && nearest.hp <= 0) {
-              const owner = nearest.side === "player" ? towers.player : towers.bot;
-              owner.king.active = true;
+              if (u.target.type === "princess" && u.target.hp <= 0) {
+                const owner = u.target.side === "player" ? towers.player : towers.bot;
+                owner.king.active = true;
+              }
             }
+          } else {
+            u.state = "move";
+
+            let targetPos;
+            if (u.card.type === "ground" && (u.target.type === "king" || u.target.type === "princess")) {
+              targetPos = getGroundTargetPosition(u, u.target);
+            } else {
+              targetPos = { x: u.target.x, y: u.target.y };
+            }
+
+            const dx = targetPos.x - u.x;
+            const dy = targetPos.y - u.y;
+            const len = Math.sqrt(dx * dx + dy * dy) || 1;
+            const vx = (dx / len) * u.card.speed;
+            const vy = (dy / len) * u.card.speed;
+
+            u.x += vx * dt;
+            u.y += vy * dt;
           }
         } else {
+          // No target: walk toward nearest enemy tower
           const enemyTowers = getEnemyTowers(u.side).filter((t) => t.hp > 0);
           if (enemyTowers.length === 0) return;
           const primaryTarget = enemyTowers[0];
@@ -657,6 +867,9 @@
       }
     }
 
+    // =========================
+    // TOWERS ATTACK
+    // =========================
     function updateTowers(dt) {
       const allTowers = getAllTowersArray();
 
@@ -667,14 +880,14 @@
         if (!t.attackCooldown) t.attackCooldown = 0;
         t.attackCooldown -= dt;
 
-        const baseRange = t.type === "king" ? 130 : 160; // princess range extended
+        const baseRange = t.type === "king" ? 130 : 170; // princess extended
         let nearest = null;
         let nearestDist = Infinity;
 
         units.forEach((u) => {
           if (u.side === t.side || u.hp <= 0) return;
 
-          // prevent princess shooting past river
+          // princess towers only shoot up to river
           if (t.type === "princess") {
             if (t.side === "player" && u.y < ARENA.riverY - 5) return;
             if (t.side === "bot" && u.y > ARENA.riverY + 5) return;
@@ -689,12 +902,15 @@
 
         if (nearest && t.attackCooldown <= 0) {
           t.attackCooldown = 1;
-          nearest.hp -= t.type === "king" ? 120 : 90;
+          nearest.hp -= t.type === "king" ? 130 : 100;
           if (nearest.hp < 0) nearest.hp = 0;
         }
       });
     }
 
+    // =========================
+    // SPELLS
+    // =========================
     function updateSpells(dt) {
       for (let i = spells.length - 1; i >= 0; i--) {
         spells[i].time -= dt;
@@ -702,12 +918,18 @@
       }
     }
 
+    // =========================
+    // GAME END
+    // =========================
     function checkGameEnd() {
       if (towers.player.king.hp <= 0) return "bot";
       if (towers.bot.king.hp <= 0) return "player";
       return null;
     }
 
+    // =========================
+    // DRAWING
+    // =========================
     function drawArena() {
       ctx.fillStyle = "#356c4a";
       ctx.fillRect(0, 0, ARENA.width, ARENA.height);
@@ -760,7 +982,7 @@
         ctx.fillStyle = u.side === "player" ? "#c9a34f" : "#7fa0d9";
         ctx.fillRect(-10, -16, 20, 32);
         ctx.fillStyle = "#444";
-        ctx.fillRect(-8, -20, 16, 8);
+        ctx.fillRect(-8, -22, 16, 10);
       } else if (u.card.id === "archers") {
         ctx.fillStyle = u.side === "player" ? "#7fd9ff" : "#ff9fd9";
         ctx.beginPath();
@@ -800,7 +1022,6 @@
         ctx.fillStyle = "#222";
         ctx.fillRect(-8, -22, 16, 10);
       } else {
-        // fallback
         ctx.fillStyle = u.side === "player" ? "#ff66aa" : "#66ddff";
         ctx.beginPath();
         ctx.arc(0, 0, 10, 0, Math.PI * 2);
@@ -814,7 +1035,7 @@
       ctx.fillStyle = "#0f0";
       ctx.fillRect(-12, 14, 24 * hpPct, 4);
 
-      // Name tag (identify enemy cards)
+      // Name tag
       ctx.font = "10px Arial";
       ctx.textAlign = "center";
       ctx.fillStyle = "#fff";
@@ -861,6 +1082,9 @@
       ctx.fillText("Refresh the page to play again.", ARENA.width / 2, ARENA.height / 2 + 40);
     }
 
+    // =========================
+    // MAIN LOOP
+    // =========================
     let lastTime = performance.now();
     let gameOver = false;
     let winner = null;
