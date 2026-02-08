@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Clash Royale Prototype – Pockets & Better Art</title>
+  <title>Clash Royale‑like – Drag, Pockets, Borders</title>
   <style>
     body {
       margin: 0;
@@ -14,7 +14,7 @@
     }
     #gameContainer {
       margin: 10px auto;
-      width: 760px;
+      width: 780px;
     }
     #ui {
       margin-bottom: 8px;
@@ -66,6 +66,7 @@
       border: 2px solid #aaa;
       transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
       box-shadow: 0 0 6px rgba(0,0,0,0.5);
+      background: #555;
     }
     .card:hover {
       transform: translateY(-3px) scale(1.05);
@@ -130,7 +131,7 @@
 </head>
 <body>
   <div id="gameContainer">
-    <h1>Clash Royale Prototype – Pockets & Art</h1>
+    <h1>Clash Royale‑like – Drag, Pockets, Borders</h1>
 
     <div id="ui">
       <div id="elixirText">Elixir: 0 / 10</div>
@@ -153,8 +154,8 @@
 
     <canvas id="gameCanvas" width="650" height="600"></canvas>
     <div id="info">
-      Click on your side (or unlocked pockets) to place the selected card.<br/>
-      Ground troops use bridges; air troops fly. Pockets unlock when you take that side’s tower.
+      Click a card, drag onto the arena, and release to place.<br/>
+      Pockets unlock when you take a princess tower; preview tints green/red and shows radius.
     </div>
   </div>
 
@@ -226,6 +227,7 @@
         aggroRange: 90,
         type: "ground",
         targetType: "ground",
+        radius: 16,
       },
       {
         id: "archers",
@@ -241,6 +243,7 @@
         aggroRange: 130,
         type: "ground",
         targetType: "air_ground",
+        radius: 14,
       },
       {
         id: "giant",
@@ -256,6 +259,7 @@
         aggroRange: 70,
         type: "ground",
         targetType: "building",
+        radius: 18,
       },
       {
         id: "minions",
@@ -271,6 +275,7 @@
         aggroRange: 100,
         type: "air",
         targetType: "air_ground",
+        radius: 14,
       },
       {
         id: "baby_dragon",
@@ -286,6 +291,7 @@
         aggroRange: 130,
         type: "air",
         targetType: "air_ground",
+        radius: 18,
       },
       {
         id: "mini_pekka",
@@ -301,6 +307,7 @@
         aggroRange: 90,
         type: "ground",
         targetType: "ground",
+        radius: 16,
       },
       {
         id: "fireball",
@@ -369,6 +376,11 @@
           <div>${card.name}</div>
           <div class="cardCost">${card.cost}</div>
         `;
+
+        div.onmousedown = (ev) => {
+          ev.preventDefault();
+          startDraggingCard(i);
+        };
 
         div.onclick = () => {
           selectedHandSlot = i;
@@ -626,31 +638,57 @@
     }
 
     // =========================
-    // INPUT
+    // INPUT – DRAG & PREVIEW
     // =========================
-    canvas.addEventListener("click", (e) => {
-      if (gameOver) return;
+    let draggingCard = null;   // { card, slotIndex }
+    let previewX = 0;
+    let previewY = 0;
+    let isValidPlacement = false;
+
+    function startDraggingCard(slotIndex) {
+      const cardIndex = playerHandIndices[slotIndex];
+      const card = getCardFromDeck(PLAYER_DECK, cardIndex);
+      if (!card) return;
+      if (elixir < card.cost) return;
+
+      draggingCard = { card, slotIndex };
+    }
+
+    canvas.addEventListener("mousemove", (e) => {
+      const rect = canvas.getBoundingClientRect();
+      previewX = e.clientX - rect.left;
+      previewY = e.clientY - rect.top;
+
+      if (draggingCard) {
+        isValidPlacement = canPlaceCardAt(draggingCard.card, previewX, previewY, "player");
+      }
+    });
+
+    canvas.addEventListener("mouseup", (e) => {
+      if (!draggingCard) return;
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
 
-      const cardIndex = playerHandIndices[selectedHandSlot];
-      const card = getCardFromDeck(PLAYER_DECK, cardIndex);
-      if (!card) return;
-      if (elixir < card.cost) return;
-      if (!canPlaceCardAt(card, x, y, "player")) return;
+      const card = draggingCard.card;
+      const slotIndex = draggingCard.slotIndex;
 
-      elixir -= card.cost;
-      updateElixirUI();
+      if (elixir >= card.cost && canPlaceCardAt(card, x, y, "player")) {
+        elixir -= card.cost;
+        updateElixirUI();
 
-      if (card.spell) {
-        spawnSpell(card, x, y, "player");
-      } else {
-        spawnUnit(card, x, y, "player");
+        if (card.spell) {
+          spawnSpell(card, x, y, "player");
+        } else {
+          spawnUnit(card, x, y, "player");
+        }
+
+        cyclePlayerCard(slotIndex);
+        renderHandUI();
       }
 
-      cyclePlayerCard(selectedHandSlot);
-      renderHandUI();
+      draggingCard = null;
+      isValidPlacement = false;
     });
 
     // =========================
@@ -940,10 +978,18 @@
         ctx.fillRect(b.x, b.y, b.width, b.height);
       });
 
-      ctx.strokeStyle = "rgba(255,255,255,0.2)";
+      // Side borders (subtle)
+      ctx.strokeStyle = "rgba(0,255,0,0.25)";
+      ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.moveTo(0, ARENA.riverY);
-      ctx.lineTo(ARENA.width, ARENA.riverY);
+      ctx.moveTo(0, ARENA.riverY + 1);
+      ctx.lineTo(ARENA.width, ARENA.riverY + 1);
+      ctx.stroke();
+
+      ctx.strokeStyle = "rgba(255,0,0,0.25)";
+      ctx.beginPath();
+      ctx.moveTo(0, ARENA.riverY - 1);
+      ctx.lineTo(ARENA.width, ARENA.riverY - 1);
       ctx.stroke();
     }
 
@@ -1049,7 +1095,6 @@
         ctx.lineTo(-26, 8);
         ctx.closePath();
         ctx.fill();
-        ctx.fillStyle = "#2a5";
         ctx.beginPath();
         ctx.moveTo(16, 0);
         ctx.lineTo(26, -8);
@@ -1091,6 +1136,81 @@
       ctx.beginPath();
       ctx.arc(s.x, s.y, s.card.radius, 0, Math.PI * 2);
       ctx.fill();
+      ctx.restore();
+    }
+
+    function drawPockets() {
+      const pockets = getPlayerPockets();
+      ctx.save();
+      ctx.lineWidth = 2;
+      pockets.forEach((p) => {
+        ctx.strokeStyle = "rgba(0,255,0,0.35)";
+        ctx.setLineDash([6, 4]);
+        ctx.strokeRect(p.x1, p.y1, p.x2 - p.x1, p.y2 - p.y1);
+      });
+      ctx.restore();
+    }
+
+    function drawPreview() {
+      if (!draggingCard) return;
+      const card = draggingCard.card;
+
+      ctx.save();
+      ctx.globalAlpha = 0.5;
+
+      const colorTint = isValidPlacement ? "rgba(0,255,0,0.5)" : "rgba(255,0,0,0.5)";
+      ctx.strokeStyle = colorTint;
+      ctx.lineWidth = 2;
+
+      // radius circle
+      const r = card.spell ? card.radius : (card.radius || 16);
+      ctx.beginPath();
+      ctx.arc(previewX, previewY, r, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // troop art
+      ctx.translate(previewX, previewY);
+      ctx.globalAlpha = 0.6;
+
+      if (!card.spell) {
+        if (card.id === "knight") {
+          ctx.fillStyle = colorTint;
+          ctx.fillRect(-10, -18, 20, 36);
+        } else if (card.id === "archers") {
+          ctx.fillStyle = colorTint;
+          ctx.beginPath();
+          ctx.ellipse(0, 0, 10, 14, 0, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (card.id === "giant") {
+          ctx.fillStyle = colorTint;
+          ctx.fillRect(-16, -24, 32, 48);
+        } else if (card.id === "minions") {
+          ctx.fillStyle = colorTint;
+          ctx.beginPath();
+          ctx.arc(-7, 0, 7, 0, Math.PI * 2);
+          ctx.arc(7, 0, 7, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (card.id === "baby_dragon") {
+          ctx.fillStyle = colorTint;
+          ctx.beginPath();
+          ctx.ellipse(0, 0, 16, 12, 0, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (card.id === "mini_pekka") {
+          ctx.fillStyle = colorTint;
+          ctx.fillRect(-10, -18, 20, 36);
+        } else {
+          ctx.fillStyle = colorTint;
+          ctx.beginPath();
+          ctx.arc(0, 0, 10, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      } else {
+        ctx.fillStyle = colorTint;
+        ctx.beginPath();
+        ctx.arc(0, 0, 10, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
       ctx.restore();
     }
 
@@ -1161,6 +1281,8 @@
       drawTowers();
       drawUnits();
       drawSpells();
+      drawPockets();
+      drawPreview();
 
       if (gameOver) {
         drawGameOver(winner);
