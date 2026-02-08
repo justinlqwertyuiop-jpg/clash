@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Clash Royale Prototype – Updated</title>
+  <title>Clash Royale Prototype – Card Cycling</title>
   <style>
     body {
       margin: 0;
@@ -14,13 +14,13 @@
     }
     #gameContainer {
       margin: 10px auto;
-      width: 700px;
+      width: 720px;
     }
     #ui {
       margin-bottom: 8px;
     }
     #elixirBarOuter {
-      width: 300px;
+      width: 320px;
       height: 20px;
       border: 2px solid #fff;
       margin: 0 auto 4px;
@@ -38,12 +38,19 @@
       margin-bottom: 6px;
     }
 
-    /* --- CARD UI IMPROVED --- */
+    #handRow {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 4px;
+    }
+
     #cards {
       display: flex;
       justify-content: center;
       gap: 6px;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
     }
     .card {
       width: 90px;
@@ -56,7 +63,7 @@
       justify-content: center;
       font-size: 13px;
       border: 2px solid #aaa;
-      transition: transform 0.15s;
+      transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
     }
     .card:hover {
       transform: scale(1.08);
@@ -76,6 +83,23 @@
       font-size: 15px;
     }
 
+    #nextCardBox {
+      width: 80px;
+      height: 100px;
+      border-radius: 8px;
+      border: 2px dashed #aaa;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      color: #ddd;
+    }
+    #nextCardBox .cardIcon {
+      font-size: 22px;
+      margin-bottom: 2px;
+    }
+
     canvas {
       background: #356c4a;
       border: 2px solid #fff;
@@ -84,11 +108,17 @@
     }
 
     #doubleElixirBanner {
-      font-size: 26px;
+      font-size: 22px;
       font-weight: bold;
       color: #ff66ff;
-      margin-top: 6px;
+      margin-top: 4px;
       display: none;
+    }
+
+    #info {
+      font-size: 13px;
+      margin-top: 4px;
+      color: #ccc;
     }
   </style>
 </head>
@@ -101,24 +131,37 @@
       <div id="elixirBarOuter">
         <div id="elixirBarInner"></div>
       </div>
-      <div id="cards"></div>
+
+      <div id="handRow">
+        <div id="cards"></div>
+        <div id="nextCardBox">
+          <div>Next</div>
+          <div id="nextCardIcon" class="cardIcon">?</div>
+          <div id="nextCardName"></div>
+          <div id="nextCardCost" class="cardCost"></div>
+        </div>
+      </div>
+
       <div id="doubleElixirBanner">⚡ 2× ELIXIR! ⚡</div>
     </div>
 
     <canvas id="gameCanvas" width="650" height="600"></canvas>
+    <div id="info">
+      Click on your side of the arena to place the selected card.<br/>
+      Ground troops must use bridges; air troops can fly over the river.
+    </div>
   </div>
 
   <script>
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
 
-    /* --- MAP UPDATED --- */
     const ARENA = {
       width: canvas.width,
       height: canvas.height,
       riverY: canvas.height / 2,
       bridgeWidth: 90,
-      bridgeGap: 200,   // MUCH WIDER GAP
+      bridgeGap: 220, // bridges further apart
     };
 
     const bridges = [
@@ -136,13 +179,13 @@
       },
     ];
 
-    /* --- ELIXIR SYSTEM WITH 2X MODE --- */
     const ELIXIR_MAX = 10;
     let elixir = 5;
     let botElixir = 5;
 
-    let elixirRegen = 0.35;
-    let botElixirRegen = 0.35;
+    let elixirRegenBase = 0.35;
+    let elixirRegen = elixirRegenBase;
+    let botElixirRegen = elixirRegenBase;
 
     let doubleElixir = false;
     let gameTime = 0;
@@ -151,7 +194,11 @@
     const elixirBarInner = document.getElementById("elixirBarInner");
     const doubleElixirBanner = document.getElementById("doubleElixirBanner");
 
-    /* --- CARDS WITH COLORS + ICONS --- */
+    const cardsContainer = document.getElementById("cards");
+    const nextCardIcon = document.getElementById("nextCardIcon");
+    const nextCardName = document.getElementById("nextCardName");
+    const nextCardCost = document.getElementById("nextCardCost");
+
     const CARDS = [
       { id: "knight", name: "Knight", icon: "🛡️", color: "#8b5", cost: 3, speed: 40, hp: 800, dmg: 80, range: 20, type: "ground" },
       { id: "archers", name: "Archers", icon: "🏹", color: "#6bf", cost: 3, speed: 45, hp: 250, dmg: 60, range: 90, type: "air" },
@@ -163,18 +210,45 @@
       { id: "arrows", name: "Arrows", icon: "🎯", color: "#fff", cost: 3, spell: true, radius: 80, dmg: 150 },
     ];
 
-    let selectedCardId = CARDS[0].id;
+    const PLAYER_DECK = [...CARDS]; // 8 cards
+    const BOT_DECK = [...CARDS];
 
-    /* --- CARD UI --- */
-    const cardsContainer = document.getElementById("cards");
+    let playerHandIndices = [0, 1, 2, 3];
+    let playerNextIndex = 4;
 
-    function renderCardUI() {
+    let botHandIndices = [0, 1, 2, 3];
+    let botNextIndex = 4;
+
+    let selectedHandSlot = 0;
+
+    function getCardFromDeck(deck, index) {
+      return deck[index % deck.length];
+    }
+
+    function cyclePlayerCard(slotIndex) {
+      playerHandIndices[slotIndex] = playerNextIndex;
+      playerNextIndex = (playerNextIndex + 1) % PLAYER_DECK.length;
+    }
+
+    function cycleBotCard(slotIndex) {
+      botHandIndices[slotIndex] = botNextIndex;
+      botNextIndex = (botNextIndex + 1) % BOT_DECK.length;
+    }
+
+    function updateElixirUI() {
+      elixirText.textContent = `Elixir: ${elixir.toFixed(1)} / ${ELIXIR_MAX}`;
+      const pct = (elixir / ELIXIR_MAX) * 100;
+      elixirBarInner.style.width = `${Math.min(100, pct)}%`;
+    }
+
+    function renderHandUI() {
       cardsContainer.innerHTML = "";
-      CARDS.forEach((card) => {
+      for (let i = 0; i < playerHandIndices.length; i++) {
+        const card = getCardFromDeck(PLAYER_DECK, playerHandIndices[i]);
         const div = document.createElement("div");
-        div.className = "card" + (card.id === selectedCardId ? " selected" : "");
+        div.className = "card" + (i === selectedHandSlot ? " selected" : "");
         div.style.background = card.color;
-        div.dataset.id = card.id;
+        div.dataset.slot = i;
 
         div.innerHTML = `
           <div class="cardIcon">${card.icon}</div>
@@ -183,27 +257,522 @@
         `;
 
         div.onclick = () => {
-          selectedCardId = card.id;
-          renderCardUI();
+          selectedHandSlot = i;
+          renderHandUI();
         };
 
         cardsContainer.appendChild(div);
+      }
+
+      const nextCard = getCardFromDeck(PLAYER_DECK, playerNextIndex);
+      nextCardIcon.textContent = nextCard.icon;
+      nextCardName.textContent = nextCard.name;
+      nextCardCost.textContent = nextCard.cost;
+    }
+
+    renderHandUI();
+    updateElixirUI();
+
+    function createTowers() {
+      const bottomY = ARENA.height - 80;
+      const topY = 40;
+      const sideOffset = 120;
+      const kingOffsetY = 40;
+
+      return {
+        player: {
+          king: {
+            x: ARENA.width / 2,
+            y: bottomY + kingOffsetY,
+            w: 40,
+            h: 40,
+            hp: 4000,
+            maxHp: 4000,
+            active: false,
+            side: "player",
+            type: "king",
+          },
+          leftPrincess: {
+            x: sideOffset,
+            y: bottomY,
+            w: 40,
+            h: 40,
+            hp: 2500,
+            maxHp: 2500,
+            active: true,
+            side: "player",
+            type: "princess",
+          },
+          rightPrincess: {
+            x: ARENA.width - sideOffset,
+            y: bottomY,
+            w: 40,
+            h: 40,
+            hp: 2500,
+            maxHp: 2500,
+            active: true,
+            side: "player",
+            type: "princess",
+          },
+        },
+        bot: {
+          king: {
+            x: ARENA.width / 2,
+            y: topY - kingOffsetY,
+            w: 40,
+            h: 40,
+            hp: 4000,
+            maxHp: 4000,
+            active: false,
+            side: "bot",
+            type: "king",
+          },
+          leftPrincess: {
+            x: sideOffset,
+            y: topY,
+            w: 40,
+            h: 40,
+            hp: 2500,
+            maxHp: 2500,
+            active: true,
+            side: "bot",
+            type: "princess",
+          },
+          rightPrincess: {
+            x: ARENA.width - sideOffset,
+            y: topY,
+            w: 40,
+            h: 40,
+            hp: 2500,
+            maxHp: 2500,
+            active: true,
+            side: "bot",
+            type: "princess",
+          },
+        },
+      };
+    }
+
+    let towers = createTowers();
+    const units = [];
+    const spells = [];
+
+    function distance(a, b) {
+      const dx = a.x - b.x;
+      const dy = a.y - b.y;
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    function getAllTowersArray() {
+      return [
+        towers.player.king,
+        towers.player.leftPrincess,
+        towers.player.rightPrincess,
+        towers.bot.king,
+        towers.bot.leftPrincess,
+        towers.bot.rightPrincess,
+      ];
+    }
+
+    function getEnemyTowers(side) {
+      return side === "player"
+        ? [towers.bot.leftPrincess, towers.bot.rightPrincess, towers.bot.king]
+        : [towers.player.leftPrincess, towers.player.rightPrincess, towers.player.king];
+    }
+
+    function canPlaceCardAt(card, x, y, side) {
+      if (side === "player" && y <= ARENA.riverY + 10) return false;
+      if (side === "bot" && y >= ARENA.riverY - 10) return false;
+      return true;
+    }
+
+    function spawnUnit(card, x, y, side) {
+      units.push({
+        x,
+        y,
+        side,
+        card,
+        hp: card.hp,
+        target: null,
+        attackCooldown: 0,
       });
     }
-    renderCardUI();
 
-    /* --- TOWERS, UNITS, SPELLS, BOT, GAME LOOP --- */
-    /* --- (The rest of the code is identical to the previous version,
-            except for using ARENA.width changes and elixirRegen variables.) --- */
+    function spawnSpell(card, x, y, side) {
+      spells.push({
+        x,
+        y,
+        side,
+        card,
+        time: 0.3,
+      });
 
-    /*  
-      ⚠️ To keep this message readable, I’m not repeating the entire 600+ lines again.
-      Only the changed sections are shown above.
+      const allTowers = getAllTowersArray();
+      allTowers.forEach((t) => {
+        if (t.hp > 0 && distance({ x, y }, t) <= card.radius) {
+          t.hp -= card.dmg;
+          if (t.hp < 0) t.hp = 0;
 
-      If you want the full combined file with every line included,
-      I can send the entire merged version in one message.
-    */
+          if (t.type === "king") {
+            t.active = true;
+          }
 
+          if (t.type === "princess" && t.hp <= 0) {
+            const owner = t.side === "player" ? towers.player : towers.bot;
+            owner.king.active = true;
+          }
+        }
+      });
+
+      units.forEach((u) => {
+        if (u.hp > 0 && distance({ x, y }, u) <= card.radius) {
+          u.hp -= card.dmg;
+          if (u.hp < 0) u.hp = 0;
+        }
+      });
+    }
+
+    canvas.addEventListener("click", (e) => {
+      if (gameOver) return;
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      const cardIndex = playerHandIndices[selectedHandSlot];
+      const card = getCardFromDeck(PLAYER_DECK, cardIndex);
+      if (!card) return;
+      if (elixir < card.cost) return;
+      if (!canPlaceCardAt(card, x, y, "player")) return;
+
+      elixir -= card.cost;
+      updateElixirUI();
+
+      if (card.spell) {
+        spawnSpell(card, x, y, "player");
+      } else {
+        spawnUnit(card, x, y, "player");
+      }
+
+      cyclePlayerCard(selectedHandSlot);
+      renderHandUI();
+    });
+
+    let botDecisionTimer = 0;
+
+    function botUpdate(dt) {
+      botElixir = Math.min(ELIXIR_MAX, botElixir + botElixirRegen * dt);
+
+      botDecisionTimer -= dt;
+      if (botDecisionTimer > 0) return;
+
+      botDecisionTimer = 1.5 + Math.random() * 1.5;
+
+      const playableSlots = [];
+      for (let i = 0; i < botHandIndices.length; i++) {
+        const card = getCardFromDeck(BOT_DECK, botHandIndices[i]);
+        if (card.cost <= botElixir) playableSlots.push(i);
+      }
+      if (playableSlots.length === 0) return;
+
+      const slot = playableSlots[Math.floor(Math.random() * playableSlots.length)];
+      const cardIndex = botHandIndices[slot];
+      const card = getCardFromDeck(BOT_DECK, cardIndex);
+
+      const x = 80 + Math.random() * (ARENA.width - 160);
+      const y = 40 + Math.random() * (ARENA.riverY - 80);
+
+      if (!canPlaceCardAt(card, x, y, "bot")) return;
+
+      botElixir -= card.cost;
+
+      if (card.spell) {
+        spawnSpell(card, x, y, "bot");
+      } else {
+        spawnUnit(card, x, y, "bot");
+      }
+
+      cycleBotCard(slot);
+    }
+
+    function getGroundTargetPosition(unit, targetTower) {
+      const goingUp = unit.side === "player";
+      if ((goingUp && unit.y <= ARENA.riverY) || (!goingUp && unit.y >= ARENA.riverY)) {
+        return { x: targetTower.x, y: targetTower.y };
+      }
+
+      const bridgeCenters = bridges.map((b) => ({ x: b.x + b.width / 2, y: ARENA.riverY }));
+      let best = bridgeCenters[0];
+      let bestDist = Math.abs(unit.x - best.x);
+      for (let i = 1; i < bridgeCenters.length; i++) {
+        const d = Math.abs(unit.x - bridgeCenters[i].x);
+        if (d < bestDist) {
+          bestDist = d;
+          best = bridgeCenters[i];
+        }
+      }
+      return best;
+    }
+
+    function updateUnits(dt) {
+      const allTowers = getAllTowersArray();
+
+      units.forEach((u) => {
+        if (u.hp <= 0) return;
+
+        let nearest = null;
+        let nearestDist = Infinity;
+
+        units.forEach((other) => {
+          if (other === u || other.hp <= 0) return;
+          if (other.side === u.side) return;
+          const d = distance(u, other);
+          if (d < nearestDist) {
+            nearestDist = d;
+            nearest = other;
+          }
+        });
+
+        allTowers.forEach((t) => {
+          if (t.hp <= 0) return;
+          if (t.side === u.side) return;
+          const d = distance(u, t);
+          if (d < nearestDist) {
+            nearestDist = d;
+            nearest = t;
+          }
+        });
+
+        u.attackCooldown -= dt;
+
+        if (nearest && nearestDist <= u.card.range) {
+          if (u.attackCooldown <= 0) {
+            u.attackCooldown = 1;
+            nearest.hp -= u.card.dmg;
+            if (nearest.hp < 0) nearest.hp = 0;
+
+            if (nearest.type === "princess" && nearest.hp <= 0) {
+              const owner = nearest.side === "player" ? towers.player : towers.bot;
+              owner.king.active = true;
+            }
+          }
+        } else {
+          const enemyTowers = getEnemyTowers(u.side).filter((t) => t.hp > 0);
+          if (enemyTowers.length === 0) return;
+          const primaryTarget = enemyTowers[0];
+
+          let targetPos;
+          if (u.card.type === "ground") {
+            targetPos = getGroundTargetPosition(u, primaryTarget);
+          } else {
+            targetPos = { x: primaryTarget.x, y: primaryTarget.y };
+          }
+
+          const dx = targetPos.x - u.x;
+          const dy = targetPos.y - u.y;
+          const len = Math.sqrt(dx * dx + dy * dy) || 1;
+          const vx = (dx / len) * u.card.speed;
+          const vy = (dy / len) * u.card.speed;
+
+          u.x += vx * dt;
+          u.y += vy * dt;
+        }
+      });
+
+      for (let i = units.length - 1; i >= 0; i--) {
+        if (units[i].hp <= 0) units.splice(i, 1);
+      }
+    }
+
+    function updateTowers(dt) {
+      const allTowers = getAllTowersArray();
+
+      allTowers.forEach((t) => {
+        if (t.hp <= 0) return;
+        if (t.type === "king" && !t.active) return;
+
+        if (!t.attackCooldown) t.attackCooldown = 0;
+        t.attackCooldown -= dt;
+
+        const range = t.type === "king" ? 130 : 110;
+        let nearest = null;
+        let nearestDist = Infinity;
+
+        units.forEach((u) => {
+          if (u.side === t.side || u.hp <= 0) return;
+          const d = distance(u, t);
+          if (d < nearestDist && d <= range) {
+            nearestDist = d;
+            nearest = u;
+          }
+        });
+
+        if (nearest && t.attackCooldown <= 0) {
+          t.attackCooldown = 1;
+          nearest.hp -= t.type === "king" ? 120 : 90;
+          if (nearest.hp < 0) nearest.hp = 0;
+        }
+      });
+    }
+
+    function updateSpells(dt) {
+      for (let i = spells.length - 1; i >= 0; i--) {
+        spells[i].time -= dt;
+        if (spells[i].time <= 0) spells.splice(i, 1);
+      }
+    }
+
+    function checkGameEnd() {
+      if (towers.player.king.hp <= 0) return "bot";
+      if (towers.bot.king.hp <= 0) return "player";
+      return null;
+    }
+
+    function drawArena() {
+      ctx.fillStyle = "#356c4a";
+      ctx.fillRect(0, 0, ARENA.width, ARENA.height);
+
+      ctx.fillStyle = "#3b7bbf";
+      ctx.fillRect(0, ARENA.riverY - 20, ARENA.width, 40);
+
+      ctx.fillStyle = "#b58b4a";
+      bridges.forEach((b) => {
+        ctx.fillRect(b.x, b.y, b.width, b.height);
+      });
+
+      ctx.strokeStyle = "rgba(255,255,255,0.2)";
+      ctx.beginPath();
+      ctx.moveTo(0, ARENA.riverY);
+      ctx.lineTo(ARENA.width, ARENA.riverY);
+      ctx.stroke();
+    }
+
+    function drawTower(t) {
+      if (t.hp <= 0) return;
+      ctx.save();
+      ctx.translate(t.x, t.y);
+      ctx.fillStyle = t.side === "player" ? "#ffcc66" : "#66aaff";
+      ctx.fillRect(-t.w / 2, -t.h / 2, t.w, t.h);
+
+      if (t.type === "king") {
+        ctx.fillStyle = t.active ? "#ff4444" : "#999";
+        ctx.beginPath();
+        ctx.arc(0, -t.h / 2 - 6, 8, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      const hpPct = t.hp / t.maxHp;
+      ctx.fillStyle = "#000";
+      ctx.fillRect(-20, t.h / 2 + 4, 40, 5);
+      ctx.fillStyle = "#0f0";
+      ctx.fillRect(-20, t.h / 2 + 4, 40 * hpPct, 5);
+
+      ctx.restore();
+    }
+
+    function drawUnit(u) {
+      if (u.hp <= 0) return;
+      ctx.save();
+      ctx.translate(u.x, u.y);
+      ctx.fillStyle = u.side === "player" ? "#ff66aa" : "#66ddff";
+      ctx.beginPath();
+      ctx.arc(0, 0, 10, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = u.card.type === "air" ? "#ffffff" : "#000000";
+      ctx.fillRect(-6, -18, 12, 4);
+
+      const hpPct = u.hp / u.card.hp;
+      ctx.fillStyle = "#000";
+      ctx.fillRect(-12, 12, 24, 4);
+      ctx.fillStyle = "#0f0";
+      ctx.fillRect(-12, 12, 24 * hpPct, 4);
+
+      ctx.restore();
+    }
+
+    function drawSpell(s) {
+      ctx.save();
+      ctx.globalAlpha = 0.5;
+      ctx.fillStyle = s.card.id === "fireball" ? "#ff6600" : "#ffffff";
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.card.radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawTowers() {
+      const allTowers = getAllTowersArray();
+      allTowers.forEach(drawTower);
+    }
+
+    function drawUnits() {
+      units.forEach(drawUnit);
+    }
+
+    function drawSpells() {
+      spells.forEach(drawSpell);
+    }
+
+    function drawGameOver(winner) {
+      ctx.fillStyle = "rgba(0,0,0,0.7)";
+      ctx.fillRect(0, 0, ARENA.width, ARENA.height);
+      ctx.fillStyle = "#fff";
+      ctx.font = "36px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText(
+        winner === "player" ? "You Win!" : "You Lose!",
+        ARENA.width / 2,
+        ARENA.height / 2
+      );
+      ctx.font = "20px Arial";
+      ctx.fillText("Refresh the page to play again.", ARENA.width / 2, ARENA.height / 2 + 40);
+    }
+
+    let lastTime = performance.now();
+    let gameOver = false;
+    let winner = null;
+
+    function loop(now) {
+      const dt = (now - lastTime) / 1000;
+      lastTime = now;
+
+      if (!gameOver) {
+        gameTime += dt;
+
+        if (!doubleElixir && gameTime >= 120) {
+          doubleElixir = true;
+          elixirRegen = elixirRegenBase * 2;
+          botElixirRegen = elixirRegenBase * 2;
+          doubleElixirBanner.style.display = "block";
+        }
+
+        elixir = Math.min(ELIXIR_MAX, elixir + elixirRegen * dt);
+        updateElixirUI();
+
+        botUpdate(dt);
+        updateUnits(dt);
+        updateTowers(dt);
+        updateSpells(dt);
+
+        winner = checkGameEnd();
+        if (winner) {
+          gameOver = true;
+        }
+      }
+
+      drawArena();
+      drawTowers();
+      drawUnits();
+      drawSpells();
+
+      if (gameOver) {
+        drawGameOver(winner);
+      }
+
+      requestAnimationFrame(loop);
+    }
+
+    requestAnimationFrame(loop);
   </script>
 </body>
 </html>
