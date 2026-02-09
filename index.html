@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Clash Royale‑like – Pockets Fixed & Borders</title>
+  <title>Clash Royale‑like – Bigger Pockets & More Cards</title>
   <style>
     body {
       margin: 0;
@@ -56,7 +56,7 @@
     .card {
       width: 90px;
       height: 110px;
-      border-radius: 10px;
+      border-radius: 12px;
       cursor: pointer;
       display: flex;
       flex-direction: column;
@@ -66,7 +66,17 @@
       border: 2px solid #aaa;
       transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
       box-shadow: 0 0 6px rgba(0,0,0,0.5);
-      background: #555;
+      background: radial-gradient(circle at 30% 20%, #fff4, transparent 60%), #555;
+      position: relative;
+      overflow: hidden;
+    }
+    .card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, #ffffff22, #00000033);
+      mix-blend-mode: soft-light;
+      pointer-events: none;
     }
     .card:hover {
       transform: translateY(-3px) scale(1.05);
@@ -79,12 +89,14 @@
     .cardIcon {
       font-size: 26px;
       margin-bottom: 4px;
+      text-shadow: 0 0 4px #000;
     }
     .cardCost {
       font-weight: bold;
       margin-top: 4px;
       color: #ffd1ff;
       font-size: 15px;
+      text-shadow: 0 0 4px #000;
     }
 
     #nextCardBox {
@@ -99,6 +111,17 @@
       font-size: 11px;
       color: #ddd;
       box-shadow: 0 0 6px rgba(0,0,0,0.5);
+      background: #444;
+      position: relative;
+      overflow: hidden;
+    }
+    #nextCardBox::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(145deg, #ffffff22, #00000033);
+      mix-blend-mode: soft-light;
+      pointer-events: none;
     }
     #nextCardBox .cardIcon {
       font-size: 22px;
@@ -131,7 +154,7 @@
 </head>
 <body>
   <div id="gameContainer">
-    <h1>Clash Royale‑like – Pockets Fixed & Borders</h1>
+    <h1>Clash Royale‑like – Bigger Pockets & More Cards</h1>
 
     <div id="ui">
       <div id="elixirText">Elixir: 0 / 10</div>
@@ -155,7 +178,7 @@
     <canvas id="gameCanvas" width="650" height="600"></canvas>
     <div id="info">
       Click a card, drag onto the arena, and release to place.<br/>
-      Pockets unlock when you take a princess tower; borders show and you can place there.
+      Pockets unlock when you take a princess tower; they’re bigger and further up now.
     </div>
   </div>
 
@@ -268,11 +291,11 @@
         color: "#66f",
         cost: 3,
         speed: 60,
-        hp: 200,
-        dmg: 80,
+        hp: 260,      // buffed
+        dmg: 95,      // buffed
         range: 20,
         attackSpeed: 1.0,
-        aggroRange: 100,
+        aggroRange: 110,
         type: "air",
         targetType: "air_ground",
         radius: 14,
@@ -308,6 +331,58 @@
         type: "ground",
         targetType: "ground",
         radius: 16,
+      },
+      {
+        id: "musketeer",
+        name: "Musketeer",
+        icon: "🔫",
+        color: "#9cf",
+        cost: 4,
+        speed: 45,
+        hp: 600,
+        dmg: 160,
+        range: 140,
+        attackSpeed: 1.1,
+        aggroRange: 150,
+        type: "ground",
+        targetType: "air_ground",
+        radius: 14,
+      },
+      {
+        id: "valkyrie",
+        name: "Valkyrie",
+        icon: "🌀",
+        color: "#f96",
+        cost: 4,
+        speed: 40,
+        hp: 1350,
+        dmg: 150,
+        range: 35,
+        attackSpeed: 1.0,
+        aggroRange: 80,
+        type: "ground",
+        targetType: "ground",
+        radius: 18,
+        splash: true,
+        splashRadius: 40,
+      },
+      {
+        id: "wizard",
+        name: "Wizard",
+        icon: "🧙‍♂️",
+        color: "#a6f",
+        cost: 5,
+        speed: 40,
+        hp: 700,
+        dmg: 220,
+        range: 130,
+        attackSpeed: 1.4,
+        aggroRange: 150,
+        type: "ground",
+        targetType: "air_ground",
+        radius: 14,
+        splash: true,
+        splashRadius: 55,
       },
       {
         id: "fireball",
@@ -368,7 +443,7 @@
         const card = getCardFromDeck(PLAYER_DECK, playerHandIndices[i]);
         const div = document.createElement("div");
         div.className = "card" + (i === selectedHandSlot ? " selected" : "");
-        div.style.background = card.color;
+        div.style.backgroundColor = card.color;
         div.dataset.slot = i;
 
         div.innerHTML = `
@@ -513,67 +588,48 @@
     }
 
     // =========================
-    // POCKETS (FIXED)
+    // POCKETS – BIGGER & FURTHER UP
     // =========================
-    // Pockets are defined as rectangles near the river between the destroyed princess tower and the king tower.
+    // Player pockets: on enemy side, near river, larger and higher (closer to river).
     function getPlayerPockets() {
       const pockets = [];
       const enemy = towers.bot;
       const king = enemy.king;
 
-      const pocketTop = ARENA.riverY - 60;
-      const pocketBottom = ARENA.riverY - 10;
+      const pocketTop = ARENA.riverY - 100;
+      const pocketBottom = ARENA.riverY - 5;
 
       if (enemy.leftPrincess.hp <= 0) {
-        const x1 = Math.min(enemy.leftPrincess.x, king.x) - 40;
-        const x2 = Math.max(enemy.leftPrincess.x, king.x) + 40;
-        pockets.push({
-          x1,
-          x2,
-          y1: pocketTop,
-          y2: pocketBottom,
-        });
+        const x1 = Math.min(enemy.leftPrincess.x, king.x) - 60;
+        const x2 = Math.max(enemy.leftPrincess.x, king.x) + 60;
+        pockets.push({ x1, x2, y1: pocketTop, y2: pocketBottom });
       }
       if (enemy.rightPrincess.hp <= 0) {
-        const x1 = Math.min(enemy.rightPrincess.x, king.x) - 40;
-        const x2 = Math.max(enemy.rightPrincess.x, king.x) + 40;
-        pockets.push({
-          x1,
-          x2,
-          y1: pocketTop,
-          y2: pocketBottom,
-        });
+        const x1 = Math.min(enemy.rightPrincess.x, king.x) - 60;
+        const x2 = Math.max(enemy.rightPrincess.x, king.x) + 60;
+        pockets.push({ x1, x2, y1: pocketTop, y2: pocketBottom });
       }
       return pockets;
     }
 
+    // Bot pockets: mirrored on player side.
     function getBotPockets() {
       const pockets = [];
       const enemy = towers.player;
       const king = enemy.king;
 
-      const pocketTop = ARENA.riverY + 10;
-      const pocketBottom = ARENA.riverY + 60;
+      const pocketTop = ARENA.riverY + 5;
+      const pocketBottom = ARENA.riverY + 100;
 
       if (enemy.leftPrincess.hp <= 0) {
-        const x1 = Math.min(enemy.leftPrincess.x, king.x) - 40;
-        const x2 = Math.max(enemy.leftPrincess.x, king.x) + 40;
-        pockets.push({
-          x1,
-          x2,
-          y1: pocketTop,
-          y2: pocketBottom,
-        });
+        const x1 = Math.min(enemy.leftPrincess.x, king.x) - 60;
+        const x2 = Math.max(enemy.leftPrincess.x, king.x) + 60;
+        pockets.push({ x1, x2, y1: pocketTop, y2: pocketBottom });
       }
       if (enemy.rightPrincess.hp <= 0) {
-        const x1 = Math.min(enemy.rightPrincess.x, king.x) - 40;
-        const x2 = Math.max(enemy.rightPrincess.x, king.x) + 40;
-        pockets.push({
-          x1,
-          x2,
-          y1: pocketTop,
-          y2: pocketBottom,
-        });
+        const x1 = Math.min(enemy.rightPrincess.x, king.x) - 60;
+        const x2 = Math.max(enemy.rightPrincess.x, king.x) + 60;
+        pockets.push({ x1, x2, y1: pocketTop, y2: pocketBottom });
       }
       return pockets;
     }
@@ -586,9 +642,7 @@
       if (card.spell) return true;
 
       if (side === "player") {
-        // Normal side: bottom half
         if (y > ARENA.riverY + 10) return true;
-        // Pockets on enemy side near river
         const pockets = getPlayerPockets();
         for (const p of pockets) {
           if (pointInRect(x, y, p)) return true;
@@ -839,6 +893,19 @@
       return best;
     }
 
+    function applySplashDamage(attacker, primaryTarget) {
+      if (!attacker.card.splash) return;
+      const radius = attacker.card.splashRadius || 40;
+      units.forEach((u) => {
+        if (u.side === primaryTarget.side && u !== primaryTarget && u.hp > 0) {
+          if (distance(u, primaryTarget) <= radius) {
+            u.hp -= attacker.card.dmg * 0.7;
+            if (u.hp < 0) u.hp = 0;
+          }
+        }
+      });
+    }
+
     function updateUnits(dt) {
       units.forEach((u) => {
         if (u.hp <= 0) return;
@@ -863,6 +930,8 @@
               u.attackCooldown = u.card.attackSpeed;
               u.target.hp -= u.card.dmg;
               if (u.target.hp < 0) u.target.hp = 0;
+
+              applySplashDamage(u, u.target);
 
               if (u.target.type === "princess" && u.target.hp <= 0) {
                 const owner = u.target.side === "player" ? towers.player : towers.bot;
@@ -995,7 +1064,6 @@
         ctx.fillRect(b.x, b.y, b.width, b.height);
       });
 
-      // Side borders (subtle)
       ctx.strokeStyle = "rgba(0,255,0,0.25)";
       ctx.lineWidth = 3;
       ctx.beginPath();
@@ -1053,17 +1121,29 @@
       ctx.save();
       ctx.translate(u.x, u.y);
 
+      // more complex silhouettes per card
       if (u.card.id === "knight") {
         ctx.fillStyle = u.side === "player" ? "#c9a34f" : "#7fa0d9";
-        ctx.fillRect(-10, -18, 20, 36);
+        ctx.beginPath();
+        ctx.moveTo(-10, 18);
+        ctx.lineTo(-14, -10);
+        ctx.lineTo(0, -22);
+        ctx.lineTo(14, -10);
+        ctx.lineTo(10, 18);
+        ctx.closePath();
+        ctx.fill();
         ctx.fillStyle = "#444";
-        ctx.fillRect(-8, -26, 16, 10);
+        ctx.fillRect(-8, -28, 16, 10);
         ctx.fillStyle = "#999";
-        ctx.fillRect(-14, -10, 8, 4);
+        ctx.fillRect(-16, -6, 8, 4);
       } else if (u.card.id === "archers") {
         ctx.fillStyle = u.side === "player" ? "#7fd9ff" : "#ff9fd9";
         ctx.beginPath();
-        ctx.ellipse(0, 0, 10, 14, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, -4, 9, 12, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#fce";
+        ctx.beginPath();
+        ctx.arc(0, -16, 6, 0, Math.PI * 2);
         ctx.fill();
         ctx.strokeStyle = "#222";
         ctx.beginPath();
@@ -1071,34 +1151,47 @@
         ctx.lineTo(10, 0);
         ctx.stroke();
         ctx.beginPath();
-        ctx.moveTo(0, -14);
-        ctx.lineTo(0, -24);
+        ctx.moveTo(0, -4);
+        ctx.lineTo(0, -18);
         ctx.stroke();
       } else if (u.card.id === "giant") {
         ctx.fillStyle = u.side === "player" ? "#d98b4f" : "#b5651d";
-        ctx.fillRect(-16, -24, 32, 48);
+        ctx.beginPath();
+        ctx.moveTo(-18, 20);
+        ctx.lineTo(-20, -10);
+        ctx.quadraticCurveTo(0, -30, 20, -10);
+        ctx.lineTo(18, 20);
+        ctx.closePath();
+        ctx.fill();
         ctx.fillStyle = "#333";
-        ctx.fillRect(-12, -32, 24, 12);
+        ctx.fillRect(-14, -32, 28, 10);
         ctx.fillStyle = "#f0c090";
-        ctx.fillRect(-8, -40, 16, 8);
+        ctx.beginPath();
+        ctx.arc(0, -40, 8, 0, Math.PI * 2);
+        ctx.fill();
       } else if (u.card.id === "minions") {
         ctx.fillStyle = u.side === "player" ? "#6666ff" : "#4444aa";
         ctx.beginPath();
-        ctx.arc(-7, 0, 7, 0, Math.PI * 2);
-        ctx.arc(7, 0, 7, 0, Math.PI * 2);
+        ctx.arc(-8, 0, 7, 0, Math.PI * 2);
+        ctx.arc(8, 0, 7, 0, Math.PI * 2);
         ctx.fill();
         ctx.fillStyle = "#99f";
         ctx.beginPath();
-        ctx.moveTo(-7, -7);
-        ctx.lineTo(-14, -14);
+        ctx.moveTo(-8, -7);
+        ctx.lineTo(-16, -16);
         ctx.lineTo(-2, -10);
         ctx.closePath();
         ctx.fill();
         ctx.beginPath();
-        ctx.moveTo(7, -7);
-        ctx.lineTo(14, -14);
+        ctx.moveTo(8, -7);
+        ctx.lineTo(16, -16);
         ctx.lineTo(2, -10);
         ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#ccd";
+        ctx.beginPath();
+        ctx.arc(-8, 0, 3, 0, Math.PI * 2);
+        ctx.arc(8, 0, 3, 0, Math.PI * 2);
         ctx.fill();
       } else if (u.card.id === "baby_dragon") {
         ctx.fillStyle = u.side === "player" ? "#4ff88a" : "#3bbf6a";
@@ -1108,23 +1201,76 @@
         ctx.fillStyle = "#2a5";
         ctx.beginPath();
         ctx.moveTo(-16, 0);
-        ctx.lineTo(-26, -8);
-        ctx.lineTo(-26, 8);
+        ctx.lineTo(-28, -10);
+        ctx.lineTo(-24, 6);
         ctx.closePath();
         ctx.fill();
         ctx.beginPath();
         ctx.moveTo(16, 0);
-        ctx.lineTo(26, -8);
-        ctx.lineTo(26, 8);
+        ctx.lineTo(28, -10);
+        ctx.lineTo(24, 6);
         ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#fff";
+        ctx.beginPath();
+        ctx.arc(4, -4, 3, 0, Math.PI * 2);
         ctx.fill();
       } else if (u.card.id === "mini_pekka") {
         ctx.fillStyle = u.side === "player" ? "#88c" : "#446";
-        ctx.fillRect(-10, -18, 20, 36);
+        ctx.beginPath();
+        ctx.moveTo(-10, 18);
+        ctx.lineTo(-12, -8);
+        ctx.lineTo(0, -20);
+        ctx.lineTo(12, -8);
+        ctx.lineTo(10, 18);
+        ctx.closePath();
+        ctx.fill();
         ctx.fillStyle = "#222";
-        ctx.fillRect(-8, -26, 16, 10);
+        ctx.fillRect(-8, -28, 16, 10);
         ctx.fillStyle = "#55f";
-        ctx.fillRect(-4, -30, 8, 4);
+        ctx.fillRect(-4, -32, 8, 4);
+      } else if (u.card.id === "musketeer") {
+        ctx.fillStyle = u.side === "player" ? "#9cf" : "#6af";
+        ctx.beginPath();
+        ctx.ellipse(0, -4, 9, 12, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#fcd";
+        ctx.beginPath();
+        ctx.arc(0, -16, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#333";
+        ctx.fillRect(4, -10, 14, 4);
+        ctx.fillRect(14, -12, 4, 8);
+      } else if (u.card.id === "valkyrie") {
+        ctx.fillStyle = u.side === "player" ? "#f96" : "#f75";
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 16, 12, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#fcd";
+        ctx.beginPath();
+        ctx.arc(0, -14, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#c33";
+        ctx.beginPath();
+        ctx.arc(0, 0, 20, 0, Math.PI * 2);
+        ctx.stroke();
+      } else if (u.card.id === "wizard") {
+        ctx.fillStyle = u.side === "player" ? "#a6f" : "#84c";
+        ctx.beginPath();
+        ctx.moveTo(-10, 18);
+        ctx.lineTo(-8, -8);
+        ctx.lineTo(8, -8);
+        ctx.lineTo(10, 18);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#fcd";
+        ctx.beginPath();
+        ctx.arc(0, -16, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#ffcc66";
+        ctx.beginPath();
+        ctx.arc(0, -4, 4, 0, Math.PI * 2);
+        ctx.fill();
       } else {
         ctx.fillStyle = u.side === "player" ? "#ff66aa" : "#66ddff";
         ctx.beginPath();
@@ -1141,7 +1287,7 @@
       ctx.font = "10px Arial";
       ctx.textAlign = "center";
       ctx.fillStyle = "#fff";
-      ctx.fillText(u.card.name, 0, -22);
+      ctx.fillText(u.card.name, 0, -26);
 
       ctx.restore();
     }
@@ -1164,7 +1310,7 @@
       ctx.lineWidth = 2;
       ctx.setLineDash([6, 4]);
       pockets.forEach((p) => {
-        ctx.strokeStyle = "rgba(0,255,0,0.35)";
+        ctx.strokeStyle = "rgba(0,255,0,0.4)";
         ctx.strokeRect(p.x1, p.y1, p.x2 - p.x1, p.y2 - p.y1);
       });
       ctx.restore();
@@ -1181,44 +1327,72 @@
       ctx.strokeStyle = colorTint;
       ctx.lineWidth = 2;
 
-      // radius circle
       const r = card.spell ? card.radius : (card.radius || 16);
       ctx.beginPath();
       ctx.arc(previewX, previewY, r, 0, Math.PI * 2);
       ctx.stroke();
 
-      // troop art
       ctx.translate(previewX, previewY);
       ctx.globalAlpha = 0.6;
 
       if (!card.spell) {
+        ctx.fillStyle = colorTint;
         if (card.id === "knight") {
-          ctx.fillStyle = colorTint;
-          ctx.fillRect(-10, -18, 20, 36);
-        } else if (card.id === "archers") {
-          ctx.fillStyle = colorTint;
           ctx.beginPath();
-          ctx.ellipse(0, 0, 10, 14, 0, 0, Math.PI * 2);
+          ctx.moveTo(-10, 18);
+          ctx.lineTo(-14, -10);
+          ctx.lineTo(0, -22);
+          ctx.lineTo(14, -10);
+          ctx.lineTo(10, 18);
+          ctx.closePath();
+          ctx.fill();
+        } else if (card.id === "archers") {
+          ctx.beginPath();
+          ctx.ellipse(0, -4, 9, 12, 0, 0, Math.PI * 2);
           ctx.fill();
         } else if (card.id === "giant") {
-          ctx.fillStyle = colorTint;
-          ctx.fillRect(-16, -24, 32, 48);
-        } else if (card.id === "minions") {
-          ctx.fillStyle = colorTint;
           ctx.beginPath();
-          ctx.arc(-7, 0, 7, 0, Math.PI * 2);
-          ctx.arc(7, 0, 7, 0, Math.PI * 2);
+          ctx.moveTo(-18, 20);
+          ctx.lineTo(-20, -10);
+          ctx.quadraticCurveTo(0, -30, 20, -10);
+          ctx.lineTo(18, 20);
+          ctx.closePath();
+          ctx.fill();
+        } else if (card.id === "minions") {
+          ctx.beginPath();
+          ctx.arc(-8, 0, 7, 0, Math.PI * 2);
+          ctx.arc(8, 0, 7, 0, Math.PI * 2);
           ctx.fill();
         } else if (card.id === "baby_dragon") {
-          ctx.fillStyle = colorTint;
           ctx.beginPath();
           ctx.ellipse(0, 0, 16, 12, 0, 0, Math.PI * 2);
           ctx.fill();
         } else if (card.id === "mini_pekka") {
-          ctx.fillStyle = colorTint;
-          ctx.fillRect(-10, -18, 20, 36);
+          ctx.beginPath();
+          ctx.moveTo(-10, 18);
+          ctx.lineTo(-12, -8);
+          ctx.lineTo(0, -20);
+          ctx.lineTo(12, -8);
+          ctx.lineTo(10, 18);
+          ctx.closePath();
+          ctx.fill();
+        } else if (card.id === "musketeer") {
+          ctx.beginPath();
+          ctx.ellipse(0, -4, 9, 12, 0, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (card.id === "valkyrie") {
+          ctx.beginPath();
+          ctx.ellipse(0, 0, 16, 12, 0, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (card.id === "wizard") {
+          ctx.beginPath();
+          ctx.moveTo(-10, 18);
+          ctx.lineTo(-8, -8);
+          ctx.lineTo(8, -8);
+          ctx.lineTo(10, 18);
+          ctx.closePath();
+          ctx.fill();
         } else {
-          ctx.fillStyle = colorTint;
           ctx.beginPath();
           ctx.arc(0, 0, 10, 0, Math.PI * 2);
           ctx.fill();
