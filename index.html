@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Clash Royale‑like – Drag, Pockets, Borders</title>
+  <title>Clash Royale‑like – Pockets Fixed & Borders</title>
   <style>
     body {
       margin: 0;
@@ -131,7 +131,7 @@
 </head>
 <body>
   <div id="gameContainer">
-    <h1>Clash Royale‑like – Drag, Pockets, Borders</h1>
+    <h1>Clash Royale‑like – Pockets Fixed & Borders</h1>
 
     <div id="ui">
       <div id="elixirText">Elixir: 0 / 10</div>
@@ -155,7 +155,7 @@
     <canvas id="gameCanvas" width="650" height="600"></canvas>
     <div id="info">
       Click a card, drag onto the arena, and release to place.<br/>
-      Pockets unlock when you take a princess tower; preview tints green/red and shows radius.
+      Pockets unlock when you take a princess tower; borders show and you can place there.
     </div>
   </div>
 
@@ -513,27 +513,35 @@
     }
 
     // =========================
-    // POCKETS
+    // POCKETS (FIXED)
     // =========================
+    // Pockets are defined as rectangles near the river between the destroyed princess tower and the king tower.
     function getPlayerPockets() {
       const pockets = [];
       const enemy = towers.bot;
       const king = enemy.king;
 
+      const pocketTop = ARENA.riverY - 60;
+      const pocketBottom = ARENA.riverY - 10;
+
       if (enemy.leftPrincess.hp <= 0) {
+        const x1 = Math.min(enemy.leftPrincess.x, king.x) - 40;
+        const x2 = Math.max(enemy.leftPrincess.x, king.x) + 40;
         pockets.push({
-          x1: Math.min(enemy.leftPrincess.x, king.x) - 35,
-          x2: Math.max(enemy.leftPrincess.x, king.x) + 35,
-          y1: enemy.leftPrincess.y - 10,
-          y2: king.y + 40,
+          x1,
+          x2,
+          y1: pocketTop,
+          y2: pocketBottom,
         });
       }
       if (enemy.rightPrincess.hp <= 0) {
+        const x1 = Math.min(enemy.rightPrincess.x, king.x) - 40;
+        const x2 = Math.max(enemy.rightPrincess.x, king.x) + 40;
         pockets.push({
-          x1: Math.min(enemy.rightPrincess.x, king.x) - 35,
-          x2: Math.max(enemy.rightPrincess.x, king.x) + 35,
-          y1: enemy.rightPrincess.y - 10,
-          y2: king.y + 40,
+          x1,
+          x2,
+          y1: pocketTop,
+          y2: pocketBottom,
         });
       }
       return pockets;
@@ -544,20 +552,27 @@
       const enemy = towers.player;
       const king = enemy.king;
 
+      const pocketTop = ARENA.riverY + 10;
+      const pocketBottom = ARENA.riverY + 60;
+
       if (enemy.leftPrincess.hp <= 0) {
+        const x1 = Math.min(enemy.leftPrincess.x, king.x) - 40;
+        const x2 = Math.max(enemy.leftPrincess.x, king.x) + 40;
         pockets.push({
-          x1: Math.min(enemy.leftPrincess.x, king.x) - 35,
-          x2: Math.max(enemy.leftPrincess.x, king.x) + 35,
-          y1: king.y - 40,
-          y2: enemy.leftPrincess.y + 10,
+          x1,
+          x2,
+          y1: pocketTop,
+          y2: pocketBottom,
         });
       }
       if (enemy.rightPrincess.hp <= 0) {
+        const x1 = Math.min(enemy.rightPrincess.x, king.x) - 40;
+        const x2 = Math.max(enemy.rightPrincess.x, king.x) + 40;
         pockets.push({
-          x1: Math.min(enemy.rightPrincess.x, king.x) - 35,
-          x2: Math.max(enemy.rightPrincess.x, king.x) + 35,
-          y1: king.y - 40,
-          y2: enemy.rightPrincess.y + 10,
+          x1,
+          x2,
+          y1: pocketTop,
+          y2: pocketBottom,
         });
       }
       return pockets;
@@ -571,7 +586,9 @@
       if (card.spell) return true;
 
       if (side === "player") {
+        // Normal side: bottom half
         if (y > ARENA.riverY + 10) return true;
+        // Pockets on enemy side near river
         const pockets = getPlayerPockets();
         for (const p of pockets) {
           if (pointInRect(x, y, p)) return true;
@@ -702,7 +719,7 @@
       botDecisionTimer -= dt;
       if (botDecisionTimer > 0) return;
 
-      botDecisionTimer = 1.1 + Math.random() * 1.4;
+      botDecisionTimer = 1.0 + Math.random() * 1.2;
 
       const playableSlots = [];
       for (let i = 0; i < botHandIndices.length; i++) {
@@ -1141,11 +1158,13 @@
 
     function drawPockets() {
       const pockets = getPlayerPockets();
+      if (pockets.length === 0) return;
+
       ctx.save();
       ctx.lineWidth = 2;
+      ctx.setLineDash([6, 4]);
       pockets.forEach((p) => {
         ctx.strokeStyle = "rgba(0,255,0,0.35)";
-        ctx.setLineDash([6, 4]);
         ctx.strokeRect(p.x1, p.y1, p.x2 - p.x1, p.y2 - p.y1);
       });
       ctx.restore();
