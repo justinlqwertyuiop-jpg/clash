@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Clash Royale‑like – Bigger Pockets & More Cards</title>
+  <title>Clash Royale‑like – Complex Classic Arena</title>
   <style>
     body {
       margin: 0;
-      background: #181818;
+      background: #101010;
       color: #fff;
       font-family: Arial, sans-serif;
       text-align: center;
@@ -14,19 +14,26 @@
     }
     #gameContainer {
       margin: 10px auto;
-      width: 780px;
+      width: 820px;
+    }
+    h1 {
+      margin: 6px 0 4px;
+      font-size: 22px;
+      letter-spacing: 0.5px;
     }
     #ui {
       margin-bottom: 8px;
     }
     #elixirBarOuter {
-      width: 360px;
+      width: 380px;
       height: 20px;
       border: 2px solid #fff;
       margin: 0 auto 4px;
       position: relative;
-      background: #333;
+      background: #222;
       box-shadow: 0 0 8px rgba(0,0,0,0.6);
+      border-radius: 10px;
+      overflow: hidden;
     }
     #elixirBarInner {
       height: 100%;
@@ -154,7 +161,7 @@
 </head>
 <body>
   <div id="gameContainer">
-    <h1>Clash Royale‑like – Bigger Pockets & More Cards</h1>
+    <h1>Clash Royale‑like – Complex Classic Arena</h1>
 
     <div id="ui">
       <div id="elixirText">Elixir: 0 / 10</div>
@@ -175,10 +182,10 @@
       <div id="doubleElixirBanner">⚡ 2× ELIXIR! ⚡</div>
     </div>
 
-    <canvas id="gameCanvas" width="650" height="600"></canvas>
+    <canvas id="gameCanvas" width="700" height="620"></canvas>
     <div id="info">
       Click a card, drag onto the arena, and release to place.<br/>
-      Pockets unlock when you take a princess tower; they’re bigger and further up now.
+      Pockets unlock when you take a princess tower; borders show and you can place there.
     </div>
   </div>
 
@@ -193,22 +200,22 @@
       width: canvas.width,
       height: canvas.height,
       riverY: canvas.height / 2,
-      bridgeWidth: 90,
-      bridgeGap: 220,
+      bridgeWidth: 60,   // thinner
+      bridgeGap: 260,    // slightly wider gap between bridges
     };
 
     const bridges = [
       {
         x: ARENA.width / 2 - ARENA.bridgeGap / 2 - ARENA.bridgeWidth,
-        y: ARENA.riverY - 10,
+        y: ARENA.riverY - 12,
         width: ARENA.bridgeWidth,
-        height: 20,
+        height: 24,
       },
       {
         x: ARENA.width / 2 + ARENA.bridgeGap / 2,
-        y: ARENA.riverY - 10,
+        y: ARENA.riverY - 12,
         width: ARENA.bridgeWidth,
-        height: 20,
+        height: 24,
       },
     ];
 
@@ -291,8 +298,8 @@
         color: "#66f",
         cost: 3,
         speed: 60,
-        hp: 260,      // buffed
-        dmg: 95,      // buffed
+        hp: 260,
+        dmg: 95,
         range: 20,
         attackSpeed: 1.0,
         aggroRange: 110,
@@ -383,6 +390,74 @@
         radius: 14,
         splash: true,
         splashRadius: 55,
+      },
+      {
+        id: "hog_rider",
+        name: "Hog Rider",
+        icon: "🐗",
+        color: "#c96",
+        cost: 4,
+        speed: 70,
+        hp: 1400,
+        dmg: 180,
+        range: 20,
+        attackSpeed: 1.0,
+        aggroRange: 90,
+        type: "ground",
+        targetType: "building",
+        radius: 16,
+      },
+      {
+        id: "spear_goblins",
+        name: "Spear Goblins",
+        icon: "🗡️",
+        color: "#6c6",
+        cost: 2,
+        speed: 60,
+        hp: 150,
+        dmg: 60,
+        range: 110,
+        attackSpeed: 1.0,
+        aggroRange: 130,
+        type: "ground",
+        targetType: "air_ground",
+        radius: 12,
+      },
+      {
+        id: "bomber",
+        name: "Bomber",
+        icon: "💣",
+        color: "#999",
+        cost: 3,
+        speed: 45,
+        hp: 350,
+        dmg: 180,
+        range: 90,
+        attackSpeed: 1.2,
+        aggroRange: 110,
+        type: "ground",
+        targetType: "ground",
+        radius: 14,
+        splash: true,
+        splashRadius: 50,
+      },
+      {
+        id: "witch",
+        name: "Witch",
+        icon: "🧹",
+        color: "#c6f",
+        cost: 5,
+        speed: 40,
+        hp: 700,
+        dmg: 120,
+        range: 120,
+        attackSpeed: 1.1,
+        aggroRange: 150,
+        type: "ground",
+        targetType: "air_ground",
+        radius: 14,
+        splash: true,
+        splashRadius: 45,
       },
       {
         id: "fireball",
@@ -478,9 +553,9 @@
     // TOWERS
     // =========================
     function createTowers() {
-      const bottomY = ARENA.height - 80;
-      const topY = 40;
-      const sideOffset = 120;
+      const bottomY = ARENA.height - 90;
+      const topY = 60;
+      const sideOffset = 130;
       const kingOffsetY = 40;
 
       return {
@@ -588,47 +663,45 @@
     }
 
     // =========================
-    // POCKETS – BIGGER & FURTHER UP
+    // POCKETS – BIGGER & HIGHER
     // =========================
-    // Player pockets: on enemy side, near river, larger and higher (closer to river).
     function getPlayerPockets() {
       const pockets = [];
       const enemy = towers.bot;
       const king = enemy.king;
 
-      const pocketTop = ARENA.riverY - 100;
-      const pocketBottom = ARENA.riverY - 5;
+      const pocketTop = ARENA.riverY - 110;
+      const pocketBottom = ARENA.riverY - 8;
 
       if (enemy.leftPrincess.hp <= 0) {
-        const x1 = Math.min(enemy.leftPrincess.x, king.x) - 60;
-        const x2 = Math.max(enemy.leftPrincess.x, king.x) + 60;
+        const x1 = Math.min(enemy.leftPrincess.x, king.x) - 70;
+        const x2 = Math.max(enemy.leftPrincess.x, king.x) + 70;
         pockets.push({ x1, x2, y1: pocketTop, y2: pocketBottom });
       }
       if (enemy.rightPrincess.hp <= 0) {
-        const x1 = Math.min(enemy.rightPrincess.x, king.x) - 60;
-        const x2 = Math.max(enemy.rightPrincess.x, king.x) + 60;
+        const x1 = Math.min(enemy.rightPrincess.x, king.x) - 70;
+        const x2 = Math.max(enemy.rightPrincess.x, king.x) + 70;
         pockets.push({ x1, x2, y1: pocketTop, y2: pocketBottom });
       }
       return pockets;
     }
 
-    // Bot pockets: mirrored on player side.
     function getBotPockets() {
       const pockets = [];
       const enemy = towers.player;
       const king = enemy.king;
 
-      const pocketTop = ARENA.riverY + 5;
-      const pocketBottom = ARENA.riverY + 100;
+      const pocketTop = ARENA.riverY + 8;
+      const pocketBottom = ARENA.riverY + 110;
 
       if (enemy.leftPrincess.hp <= 0) {
-        const x1 = Math.min(enemy.leftPrincess.x, king.x) - 60;
-        const x2 = Math.max(enemy.leftPrincess.x, king.x) + 60;
+        const x1 = Math.min(enemy.leftPrincess.x, king.x) - 70;
+        const x2 = Math.max(enemy.leftPrincess.x, king.x) + 70;
         pockets.push({ x1, x2, y1: pocketTop, y2: pocketBottom });
       }
       if (enemy.rightPrincess.hp <= 0) {
-        const x1 = Math.min(enemy.rightPrincess.x, king.x) - 60;
-        const x2 = Math.max(enemy.rightPrincess.x, king.x) + 60;
+        const x1 = Math.min(enemy.rightPrincess.x, king.x) - 70;
+        const x2 = Math.max(enemy.rightPrincess.x, king.x) + 70;
         pockets.push({ x1, x2, y1: pocketTop, y2: pocketBottom });
       }
       return pockets;
@@ -671,6 +744,7 @@
         target: null,
         attackCooldown: 0,
         state: "move",
+        bridgeQueue: false,
       });
     }
 
@@ -711,7 +785,7 @@
     // =========================
     // INPUT – DRAG & PREVIEW
     // =========================
-    let draggingCard = null;   // { card, slotIndex }
+    let draggingCard = null;
     let previewX = 0;
     let previewY = 0;
     let isValidPlacement = false;
@@ -830,15 +904,23 @@
     }
 
     // =========================
-    // PATHING & TARGETING
+    // BRIDGE / PATHING HELPERS
     // =========================
+    function getBridgeCenters() {
+      return bridges.map((b) => ({
+        x: b.x + b.width / 2,
+        y: ARENA.riverY,
+      }));
+    }
+
     function getGroundTargetPosition(unit, targetTower) {
       const goingUp = unit.side === "player";
+      const bridgeCenters = getBridgeCenters();
+
       if ((goingUp && unit.y <= ARENA.riverY) || (!goingUp && unit.y >= ARENA.riverY)) {
         return { x: targetTower.x, y: targetTower.y };
       }
 
-      const bridgeCenters = bridges.map((b) => ({ x: b.x + b.width / 2, y: ARENA.riverY }));
       let best = bridgeCenters[0];
       let bestDist = Math.abs(unit.x - best.x);
       for (let i = 1; i < bridgeCenters.length; i++) {
@@ -848,6 +930,21 @@
           best = bridgeCenters[i];
         }
       }
+
+      // "queue" effect: if many units are near the same bridge, slow down approach
+      const nearbyAllies = units.filter(
+        (u) =>
+          u.side === unit.side &&
+          u.card.type === "ground" &&
+          Math.abs(u.x - best.x) < 40 &&
+          Math.abs(u.y - ARENA.riverY) < 60
+      );
+      if (nearbyAllies.length > 4) {
+        unit.bridgeQueue = true;
+      } else {
+        unit.bridgeQueue = false;
+      }
+
       return best;
     }
 
@@ -906,6 +1003,30 @@
       });
     }
 
+    function softCollisions() {
+      const pushStrength = 0.4;
+      for (let i = 0; i < units.length; i++) {
+        for (let j = i + 1; j < units.length; j++) {
+          const a = units[i];
+          const b = units[j];
+          if (a.hp <= 0 || b.hp <= 0) continue;
+          const minDist = (a.card.radius || 14) + (b.card.radius || 14) - 2;
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist > 0 && dist < minDist) {
+            const overlap = (minDist - dist) * pushStrength;
+            const ox = (dx / dist) * overlap;
+            const oy = (dy / dist) * overlap;
+            a.x -= ox / 2;
+            a.y -= oy / 2;
+            b.x += ox / 2;
+            b.y += oy / 2;
+          }
+        }
+      }
+    }
+
     function updateUnits(dt) {
       units.forEach((u) => {
         if (u.hp <= 0) return;
@@ -951,8 +1072,19 @@
             const dx = targetPos.x - u.x;
             const dy = targetPos.y - u.y;
             const len = Math.sqrt(dx * dx + dy * dy) || 1;
-            const vx = (dx / len) * u.card.speed;
-            const vy = (dy / len) * u.card.speed;
+            let speed = u.card.speed;
+
+            if (u.card.type === "ground") {
+              const goingUp = u.side === "player";
+              const nearRiver = goingUp
+                ? u.y < ARENA.riverY + 40 && u.y > ARENA.riverY - 40
+                : u.y > ARENA.riverY - 40 && u.y < ARENA.riverY + 40;
+              if (nearRiver) speed *= 0.9;
+              if (u.bridgeQueue) speed *= 0.7;
+            }
+
+            const vx = (dx / len) * speed;
+            const vy = (dy / len) * speed;
 
             u.x += vx * dt;
             u.y += vy * dt;
@@ -972,13 +1104,25 @@
           const dx = targetPos.x - u.x;
           const dy = targetPos.y - u.y;
           const len = Math.sqrt(dx * dx + dy * dy) || 1;
-          const vx = (dx / len) * u.card.speed;
-          const vy = (dy / len) * u.card.speed;
+          let speed = u.card.speed;
+          if (u.card.type === "ground") {
+            const goingUp = u.side === "player";
+            const nearRiver = goingUp
+              ? u.y < ARENA.riverY + 40 && u.y > ARENA.riverY - 40
+              : u.y > ARENA.riverY - 40 && u.y < ARENA.riverY + 40;
+            if (nearRiver) speed *= 0.9;
+            if (u.bridgeQueue) speed *= 0.7;
+          }
+
+          const vx = (dx / len) * speed;
+          const vy = (dy / len) * speed;
 
           u.x += vx * dt;
           u.y += vy * dt;
         }
       });
+
+      softCollisions();
 
       for (let i = units.length - 1; i >= 0; i--) {
         if (units[i].hp <= 0) units.splice(i, 1);
@@ -998,7 +1142,7 @@
         if (!t.attackCooldown) t.attackCooldown = 0;
         t.attackCooldown -= dt;
 
-        const baseRange = t.type === "king" ? 140 : 180;
+        const baseRange = t.type === "king" ? 140 : 190;
         let nearest = null;
         let nearestDist = Infinity;
 
@@ -1045,24 +1189,141 @@
     }
 
     // =========================
-    // DRAWING
+    // DRAWING – ARENA
     // =========================
-    function drawArena() {
-      const topColor = "#3f7f4f";
-      const bottomColor = "#2f5f3a";
-      const gradient = ctx.createLinearGradient(0, 0, 0, ARENA.height);
-      gradient.addColorStop(0, topColor);
-      gradient.addColorStop(1, bottomColor);
+    let particleTime = 0;
+
+    function drawGrassTiles() {
+      const tileSize = 40;
+      for (let y = 0; y < ARENA.height; y += tileSize) {
+        for (let x = 0; x < ARENA.width; x += tileSize) {
+          const noise = ((x * 13 + y * 7) % 37) / 37;
+          const baseG = y < ARENA.riverY ? 0x4f : 0x3a;
+          const g = baseG + Math.floor(noise * 20);
+          ctx.fillStyle = `rgb(60,${g},70)`;
+          ctx.fillRect(x, y, tileSize, tileSize);
+
+          if (Math.random() < 0.002) {
+            ctx.fillStyle = "rgba(255,255,255,0.08)";
+            ctx.fillRect(x + 10, y + 10, 4, 4);
+          }
+        }
+      }
+    }
+
+    function drawRiver() {
+      const riverHeight = 44;
+      const y = ARENA.riverY - riverHeight / 2;
+
+      const gradient = ctx.createLinearGradient(0, y, 0, y + riverHeight);
+      gradient.addColorStop(0, "#3f8fd9");
+      gradient.addColorStop(0.5, "#2f6fbf");
+      gradient.addColorStop(1, "#245a9a");
       ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, ARENA.width, ARENA.height);
+      ctx.fillRect(0, y, ARENA.width, riverHeight);
 
-      ctx.fillStyle = "#3b7bbf";
-      ctx.fillRect(0, ARENA.riverY - 20, ARENA.width, 40);
+      ctx.strokeStyle = "rgba(255,255,255,0.25)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let x = 0; x <= ARENA.width; x += 20) {
+        const wave = Math.sin((x / 40) + particleTime * 1.2) * 3;
+        ctx.lineTo(x, y + 10 + wave);
+      }
+      ctx.stroke();
 
+      ctx.beginPath();
+      for (let x = 0; x <= ARENA.width; x += 20) {
+        const wave = Math.cos((x / 40) + particleTime * 1.1) * 3;
+        ctx.lineTo(x, y + riverHeight - 10 + wave);
+      }
+      ctx.stroke();
+    }
+
+    function drawRiverBanks() {
+      ctx.fillStyle = "#c9b27a";
+      ctx.fillRect(0, ARENA.riverY - 24, ARENA.width, 6);
+      ctx.fillRect(0, ARENA.riverY + 18, ARENA.width, 6);
+
+      ctx.fillStyle = "rgba(0,0,0,0.25)";
+      ctx.fillRect(0, ARENA.riverY + 24, ARENA.width, 4);
+    }
+
+    function drawArenaWalls() {
+      ctx.fillStyle = "#3a3a3a";
+      ctx.fillRect(0, 0, ARENA.width, 20);
+      ctx.fillRect(0, ARENA.height - 20, ARENA.width, 20);
+
+      ctx.fillStyle = "#555";
+      for (let x = 0; x < ARENA.width; x += 40) {
+        ctx.fillRect(x, 0, 30, 6);
+        ctx.fillRect(x + 10, ARENA.height - 6, 30, 6);
+      }
+    }
+
+    function drawLaneShading() {
+      ctx.fillStyle = "rgba(0,0,0,0.08)";
+      const laneWidth = ARENA.width * 0.32;
+      ctx.fillRect(ARENA.width * 0.5 - laneWidth / 2, 0, laneWidth, ARENA.height);
+    }
+
+    function drawBridges() {
+      ctx.save();
       ctx.fillStyle = "#b58b4a";
+      ctx.strokeStyle = "#7a5a2a";
+      ctx.lineWidth = 2;
+
       bridges.forEach((b) => {
         ctx.fillRect(b.x, b.y, b.width, b.height);
+        ctx.strokeRect(b.x, b.y, b.width, b.height);
+
+        const plankCount = 4;
+        const plankWidth = b.width / plankCount;
+        ctx.strokeStyle = "#7a5a2a";
+        for (let i = 1; i < plankCount; i++) {
+          const px = b.x + plankWidth * i;
+          ctx.beginPath();
+          ctx.moveTo(px, b.y);
+          ctx.lineTo(px, b.y + b.height);
+          ctx.stroke();
+        }
+
+        ctx.fillStyle = "rgba(0,0,0,0.25)";
+        ctx.beginPath();
+        ctx.ellipse(
+          b.x + b.width / 2,
+          b.y + b.height + 6,
+          b.width / 2,
+          6,
+          0,
+          0,
+          Math.PI * 2
+        );
+        ctx.fill();
       });
+
+      ctx.restore();
+    }
+
+    function drawAmbientParticles() {
+      ctx.save();
+      ctx.fillStyle = "rgba(255,255,255,0.15)";
+      for (let i = 0; i < 20; i++) {
+        const x = (i * 37 + Math.floor(particleTime * 60)) % ARENA.width;
+        const y = (i * 53 + Math.floor(particleTime * 40)) % ARENA.height;
+        if (y > ARENA.riverY - 30 && y < ARENA.riverY + 30) continue;
+        ctx.fillRect(x, y, 2, 2);
+      }
+      ctx.restore();
+    }
+
+    function drawArena() {
+      drawGrassTiles();
+      drawLaneShading();
+      drawRiver();
+      drawRiverBanks();
+      drawBridges();
+      drawArenaWalls();
+      drawAmbientParticles();
 
       ctx.strokeStyle = "rgba(0,255,0,0.25)";
       ctx.lineWidth = 3;
@@ -1078,6 +1339,9 @@
       ctx.stroke();
     }
 
+    // =========================
+    // DRAWING – TOWERS & UNITS
+    // =========================
     function drawTower(t) {
       if (t.hp <= 0) return;
       ctx.save();
@@ -1121,7 +1385,6 @@
       ctx.save();
       ctx.translate(u.x, u.y);
 
-      // more complex silhouettes per card
       if (u.card.id === "knight") {
         ctx.fillStyle = u.side === "player" ? "#c9a34f" : "#7fa0d9";
         ctx.beginPath();
@@ -1271,6 +1534,64 @@
         ctx.beginPath();
         ctx.arc(0, -4, 4, 0, Math.PI * 2);
         ctx.fill();
+      } else if (u.card.id === "hog_rider") {
+        ctx.fillStyle = u.side === "player" ? "#c96" : "#a75";
+        ctx.beginPath();
+        ctx.ellipse(0, 4, 16, 10, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#fcd";
+        ctx.beginPath();
+        ctx.arc(0, -8, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#333";
+        ctx.fillRect(-4, -2, 8, 4);
+      } else if (u.card.id === "spear_goblins") {
+        ctx.fillStyle = u.side === "player" ? "#6c6" : "#4a4";
+        ctx.beginPath();
+        ctx.ellipse(0, -2, 8, 10, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#cfc";
+        ctx.beginPath();
+        ctx.arc(0, -12, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "#222";
+        ctx.beginPath();
+        ctx.moveTo(0, -4);
+        ctx.lineTo(12, -14);
+        ctx.stroke();
+      } else if (u.card.id === "bomber") {
+        ctx.fillStyle = u.side === "player" ? "#999" : "#777";
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 12, 10, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#333";
+        ctx.beginPath();
+        ctx.arc(0, -10, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#000";
+        ctx.beginPath();
+        ctx.arc(8, -4, 4, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (u.card.id === "witch") {
+        ctx.fillStyle = u.side === "player" ? "#c6f" : "#a4d";
+        ctx.beginPath();
+        ctx.moveTo(-10, 18);
+        ctx.lineTo(-6, -8);
+        ctx.lineTo(6, -8);
+        ctx.lineTo(10, 18);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#fcd";
+        ctx.beginPath();
+        ctx.arc(0, -16, 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#333";
+        ctx.beginPath();
+        ctx.moveTo(-6, -20);
+        ctx.lineTo(0, -28);
+        ctx.lineTo(6, -20);
+        ctx.closePath();
+        ctx.fill();
       } else {
         ctx.fillStyle = u.side === "player" ? "#ff66aa" : "#66ddff";
         ctx.beginPath();
@@ -1306,11 +1627,13 @@
       const pockets = getPlayerPockets();
       if (pockets.length === 0) return;
 
+      const pulse = 0.5 + 0.5 * Math.sin(particleTime * 3);
+
       ctx.save();
       ctx.lineWidth = 2;
       ctx.setLineDash([6, 4]);
       pockets.forEach((p) => {
-        ctx.strokeStyle = "rgba(0,255,0,0.4)";
+        ctx.strokeStyle = `rgba(0,255,0,${0.25 + 0.25 * pulse})`;
         ctx.strokeRect(p.x1, p.y1, p.x2 - p.x1, p.y2 - p.y1);
       });
       ctx.restore();
@@ -1334,9 +1657,9 @@
 
       ctx.translate(previewX, previewY);
       ctx.globalAlpha = 0.6;
+      ctx.fillStyle = colorTint;
 
       if (!card.spell) {
-        ctx.fillStyle = colorTint;
         if (card.id === "knight") {
           ctx.beginPath();
           ctx.moveTo(-10, 18);
@@ -1392,13 +1715,32 @@
           ctx.lineTo(10, 18);
           ctx.closePath();
           ctx.fill();
+        } else if (card.id === "hog_rider") {
+          ctx.beginPath();
+          ctx.ellipse(0, 4, 16, 10, 0, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (card.id === "spear_goblins") {
+          ctx.beginPath();
+          ctx.ellipse(0, -2, 8, 10, 0, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (card.id === "bomber") {
+          ctx.beginPath();
+          ctx.ellipse(0, 0, 12, 10, 0, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (card.id === "witch") {
+          ctx.beginPath();
+          ctx.moveTo(-10, 18);
+          ctx.lineTo(-6, -8);
+          ctx.lineTo(6, -8);
+          ctx.lineTo(10, 18);
+          ctx.closePath();
+          ctx.fill();
         } else {
           ctx.beginPath();
           ctx.arc(0, 0, 10, 0, Math.PI * 2);
           ctx.fill();
         }
       } else {
-        ctx.fillStyle = colorTint;
         ctx.beginPath();
         ctx.arc(0, 0, 10, 0, Math.PI * 2);
         ctx.fill();
@@ -1445,6 +1787,7 @@
     function loop(now) {
       const dt = (now - lastTime) / 1000;
       lastTime = now;
+      particleTime += dt;
 
       if (!gameOver) {
         gameTime += dt;
